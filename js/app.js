@@ -1975,7 +1975,7 @@ function essayHistoryHtml(){
         <button class="star" aria-label="删除这篇练笔" onclick="delEssay('${esc(e.id)}')"></button>
       </span></div>
       ${essayOpen[e.id]
-        ? `<div class="sl-body md-body">${mdToHtml(e.feedback)}</div><div class="muted mt8">原文 ${e.body.length} 字${e.requirement? ' · 含题目要求':''}</div>`
+        ? `<div class="sl-body md-body sl-feedback">${mdToHtml(e.feedback)}</div><div class="muted mt8">原文 ${e.body.length} 字${e.requirement? ' · 含题目要求':''}</div>`
         : '<div class="muted">（展开查看批改）</div>'}
     </div>`).join('')}
   </div>`;
