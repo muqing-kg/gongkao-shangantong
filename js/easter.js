@@ -1,119 +1,156 @@
-/* ============ 同舟共济 · 藏在各处的小彩蛋 ============
-   都是「不打扰」的设计：不点、不碰、不深夜打开，就完全看不见；
-   一旦发现，会心一笑就够了。全部只在本机跑，不发任何请求。
+/* ============ 同舟共济 · 随手会冒出来的小话 ============
+   设计原则（改过一次）：
+   第一版藏得太深（连点七下、敲 zhou 之类），正常人根本碰不到，等于没有。
+   这一版改成「正常用着用着就会遇到」：
+     · 交完卷一定有一句
+     · 答题时偶尔有一句
+     · 每天第一次打开有一句
+     · 切页面偶尔有一句
+     · 点一下左上角的小船就有一句
+   全部只在本机跑，不发任何请求，也不打断任何操作。
 */
 (function () {
   'use strict';
 
-  /* ---------- 0. 控制台留言（打开 F12 才看得到） ---------- */
+  /* ---------- 话池 ---------- */
+  const CHEER = [                       // 答对时
+    '对了，记一下。',
+    '这道稳了。',
+    '手感回来了。',
+    '就是这个节奏。',
+  ];
+  const COMFORT = [                     // 答错时
+    '错了不要紧，我们一起看。',
+    '这题先记下，回头专门收拾它。',
+    '别急，错题才是涨分的地方。',
+    '没关系，下一道。',
+  ];
+  const AFTER = [                       // 交完卷
+    '今天也辛苦了。',
+    '做完了就好，剩下的交给明天。',
+    '这些题，都会变成你的。',
+    '我一直在这儿。',
+    '慢慢来，路是一步一步走的。',
+  ];
+  const HELLO = [                       // 每天第一次打开
+    '今天也一起。',
+    '来了就好，不着急。',
+    '先做一题暖暖手？',
+    '我在。',
+  ];
+  const CLICK = [                       // 点小船
+    '嗯？',
+    '我在听。',
+    '怎么啦。',
+    '想说什么就说。',
+    '累了就歇会儿。',
+    '你认真的样子很好看。',
+  ];
+
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const todayKey = () => {
+    const d = new Date();
+    return `sat_egg_${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  };
+  const onceADay = key => {
+    try {
+      if (localStorage.getItem(key)) return false;
+      localStorage.setItem(key, '1');
+      return true;
+    } catch (_) { return false; }
+  };
+
+  /* ---------- 浮层 ---------- */
+  let current = null;
+  function say(text, opts) {
+    opts = opts || {};
+    /* 同一时刻只留一句：新的顶掉旧的，而不是把新的丢掉
+       （之前是丢弃，导致每日问候还没消失时，答题的那句就永远出不来） */
+    if (current) {
+      clearTimeout(current.timer);
+      current.el.remove();
+      current = null;
+    }
+    const el = document.createElement('div');
+    el.className = 'egg-note';
+    const b = document.createElement('b');
+    b.textContent = text;
+    el.appendChild(b);
+    if (opts.sub) {
+      const s = document.createElement('span');
+      s.textContent = opts.sub;
+      el.appendChild(s);
+    }
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+    const timer = setTimeout(() => {
+      el.classList.remove('on');
+      setTimeout(() => el.remove(), 400);
+      if (current && current.el === el) current = null;
+    }, opts.ms || 3000);
+    current = { el, timer };
+  }
+  window.eggSay = say;
+
+  /* ---------- 1. 每天第一次打开 ---------- */
+  window.addEventListener('load', () => {
+    if (onceADay(todayKey())) {
+      setTimeout(() => say(pick(HELLO)), 1400);
+    }
+  });
+
+  /* ---------- 2. 交完卷：一定有一句 ---------- */
+  const result = document.querySelector('#resultLayer');
+  if (result) {
+    new MutationObserver(() => {
+      if (!result.classList.contains('hidden')) {
+        setTimeout(() => say(pick(AFTER), { ms: 4200 }), 700);
+      }
+    }).observe(result, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  /* ---------- 3. 答题时偶尔一句 ---------- */
+  /* 用事件委托听选项点击：点完一题，约 1/4 概率冒一句 */
+  document.addEventListener('click', e => {
+    const opt = e.target.closest('.q-opt, .opt, [data-opt]');
+    if (!opt) return;
+    if (Math.random() > 0.25) return;
+    /* 等界面更新完再判断对错 */
+    setTimeout(() => {
+      /* 注意：.q-opt.correct 标的是「正确答案」，不是「她答对了」。
+         只有出现 .q-opt.wrong 才说明她选错了。 */
+      const missed = document.querySelector('.q-opt.wrong');
+      say(missed ? pick(COMFORT) : pick(CHEER), { ms: 2400 });
+    }, 420);
+  }, true);
+
+  /* ---------- 4. 切页面偶尔一句（每 6 次左右一次） ---------- */
+  if (typeof window.switchTab === 'function') {
+    const orig = window.switchTab;
+    window.switchTab = function () {
+      const r = orig.apply(this, arguments);
+      if (Math.random() < 0.18) setTimeout(() => say(pick(CLICK), { ms: 2400 }), 600);
+      return r;
+    };
+  }
+
+  /* ---------- 5. 点一下小船 ---------- */
+  const logo = document.querySelector('.brand-logo');
+  if (logo) {
+    logo.style.cursor = 'pointer';
+    logo.addEventListener('click', () => {
+      logo.animate(
+        [{ transform: 'rotate(0)' }, { transform: 'rotate(-8deg)' }, { transform: 'rotate(6deg)' }, { transform: 'rotate(0)' }],
+        { duration: 420, easing: 'ease-in-out' }
+      );
+      say(pick(CLICK), { ms: 2600 });
+    });
+  }
+
+  /* ---------- 6. 控制台留言（给会开 F12 的人） ---------- */
   try {
     console.log('%c同舟共济', 'font:700 26px "Songti SC",serif;color:#C08468');
     console.log('%c一起渡过这段路。', 'font:14px "PingFang SC",sans-serif;color:#8A7461');
-    console.log('%c如果你看到了这行字——说明你和她一样，都爱刨根问底。',
-      'font:13px "PingFang SC",sans-serif;color:#8A7461');
-    console.log('%c源代码里还藏了几处，慢慢找。', 'font:12px "PingFang SC",sans-serif;color:#B9A48C');
+    console.log('%c点一下左上角那只小船试试。', 'font:12px "PingFang SC",sans-serif;color:#B9A48C');
   } catch (_) {}
-
-  /* ---------- 1. 连点船头 7 次：她的小船会晃，并浮出一句话 ---------- */
-  (function boat() {
-    const logo = document.querySelector('.brand-logo');
-    if (!logo) return;
-    let n = 0, timer = null;
-    logo.style.cursor = 'pointer';
-    logo.addEventListener('click', () => {
-      n++;
-      clearTimeout(timer);
-      timer = setTimeout(() => { n = 0; }, 1200);
-      logo.animate(
-        [{ transform: 'rotate(0)' }, { transform: 'rotate(-9deg)' }, { transform: 'rotate(7deg)' }, { transform: 'rotate(0)' }],
-        { duration: 420, easing: 'ease-in-out' }
-      );
-      if (n === 7) {
-        n = 0;
-        note('船晃了七下。', '她也在船上，别只顾着划。');
-      }
-    });
-  })();
-
-  /* ---------- 2. 深夜（23:00–05:00）打开：首页换一句问候 ---------- */
-  (function lateNight() {
-    const h = new Date().getHours();
-    if (h < 5 || h >= 23) {
-      const patch = () => {
-        const el = document.querySelector('.hero .sub');
-        if (el && !el.dataset.night) {
-          el.dataset.night = '1';
-          el.textContent = '这个点了，做两题就睡吧。';
-        }
-      };
-      patch();
-      document.addEventListener('sat:bank-loaded', () => setTimeout(patch, 200));
-    }
-  })();
-
-  /* ---------- 3. 键盘输入「舟」的拼音：浮出一句 ---------- */
-  (function konami() {
-    const seq = ['z', 'h', 'o', 'u'];
-    let i = 0;
-    document.addEventListener('keydown', e => {
-      if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
-      i = (e.key.toLowerCase() === seq[i]) ? i + 1 : (e.key.toLowerCase() === seq[0] ? 1 : 0);
-      if (i === seq.length) {
-        i = 0;
-        note('同舟。', '共济。');
-      }
-    });
-  })();
-
-  /* ---------- 4. 连续打卡徽章长按 2 秒：说出真实天数 ---------- */
-  (function streakHold() {
-    const badge = document.querySelector('#streakBadge');
-    if (!badge) return;
-    let t = null;
-    const start = () => { t = setTimeout(() => {
-      const d = (window.getStreak && window.getStreak()) || 0;
-      note('已经 ' + d + ' 天了。', d >= 7 ? '比你想的坚持得久。' : '开头最难，先走满七天。');
-    }, 2000); };
-    const stop = () => clearTimeout(t);
-    badge.addEventListener('pointerdown', start);
-    badge.addEventListener('pointerup', stop);
-    badge.addEventListener('pointerleave', stop);
-    badge.addEventListener('pointercancel', stop);
-  })();
-
-  /* ---------- 5. 在首页按住 Shift 点空白：掉一行小字 ---------- */
-  (function shiftClick() {
-    document.addEventListener('click', e => {
-      if (!e.shiftKey) return;
-      if (e.target.closest('button, a, input, textarea, select')) return;
-      const x = e.clientX, y = e.clientY;
-      const el = document.createElement('span');
-      el.textContent = ['一起', '慢慢来', '别急', '我在', '同舟'][Math.floor(Math.random() * 5)];
-      el.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:900;pointer-events:none;
-        font-size:13px;color:#C08468;font-family:"STKaiti","KaiTi",serif;letter-spacing:1px;
-        transform:translate(-50%,-50%);opacity:0;transition:opacity .5s,transform 1.4s ease-out`;
-      document.body.appendChild(el);
-      requestAnimationFrame(() => {
-        el.style.opacity = '1';
-        el.style.transform = `translate(-50%,-${90 + Math.random() * 40}px)`;
-      });
-      setTimeout(() => { el.style.opacity = '0'; }, 900);
-      setTimeout(() => el.remove(), 1800);
-    });
-  })();
-
-  /* ---------- 浮层：统一的彩蛋提示样式 ---------- */
-  function note(title, sub) {
-    const el = document.createElement('div');
-    el.className = 'egg-note';
-    el.innerHTML = '<b></b><span></span>';
-    el.querySelector('b').textContent = title;
-    el.querySelector('span').textContent = sub;
-    document.body.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('on'));
-    setTimeout(() => {
-      el.classList.remove('on');
-      setTimeout(() => el.remove(), 400);
-    }, 3400);
-  }
 })();
