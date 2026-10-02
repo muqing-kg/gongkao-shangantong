@@ -590,3 +590,18 @@ body{overflow-x:hidden;overflow-x:clip}
 #quizLayer .quiz-foot{position:static!important;bottom:auto!important;left:auto!important;transform:none!important;width:100%!important;max-width:820px!important}
 #quizLayer .quiz-body{padding-bottom:16px!important;overflow-y:auto;max-height:none!important}
 #quizLayer{max-height:100vh;overflow:hidden}
+
+/* ==========================================================================
+   侧栏图标：去掉「卷/文/升」汉字，改用 icons.js 的手绘 SVG
+   ========================================================================== */
+.sidebar .tab::before{content:none!important}
+.sidebar .tab .tab-ico{width:23px;height:23px;display:block;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sidebar .tab.active .tab-ico{stroke:#fff}
+/* 上岸小助手：去掉椭圆外框 */
+.sidebar .ask-tab{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important}
+.sidebar .ask-tab:hover{background:rgba(192,132,104,.12)!important;border-radius:12px!important}
+.sidebar .ask-tab.active{background:rgba(245,238,223,.14)!important;border-radius:0!important}
+/* 移动端底栏图标 */
+.tabbar .tab .tab-ico{width:22px;height:22px;display:block;margin:0 auto 3px;fill:none;
+  stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}

@@ -1461,7 +1461,7 @@ function buildPaper(){
   if(!qs.length){ toast('所选范围内题目不足，换个范围'); return; }
   const minutes=selectedPaperMinutes();
   __paperCfg={list:qs, time:minutes};
-  startQuiz(qs, `${ico('target')} ${$('#pcType')?.value||'自定义卷'} · ${qs.length}题（${minutes}分钟）`, minutes*60);
+  startQuiz(qs, `${ico('target')} ${esc($('#pcType')?.value||'自定义卷')} · ${qs.length}题（${minutes}分钟）`, minutes*60);
 }
 function buildPaperAndPrint(){
   const qs=paperQuestions();
@@ -2296,7 +2296,8 @@ function startQuiz(list,title,seconds){
   modalOrigin={element:origin,selector:origin?.matches?.('.tab[data-view]')?`.tab[data-view="${origin.dataset.view}"]`:(origin?.id?`#${origin.id}`:'')};
   const start=Date.now(), limit=seconds||0;
   Q={list,idx:0,answers:{},marks:{},mode:list.length>1?'multi':'single',start,limit,deadline:limit?start+limit*1000:0,timer:null,elapsed:0,context:String(title||'').startsWith('每日一练')?'daily':'practice'};
-  $('#quizTitle').textContent=title;
+  /* 标题里含图标 SVG，必须用 innerHTML；内容由本文件自己拼装，无外部输入 */
+  $('#quizTitle').innerHTML=title;
   $('#resultLayer').classList.add('hidden');
   $('#quizLayer').classList.remove('hidden');
   modalBackground(true);
