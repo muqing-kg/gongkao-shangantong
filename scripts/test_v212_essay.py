@@ -161,6 +161,9 @@ with sync_playwright() as p:
     page.wait_for_timeout(250)
     page.click('button[aria-label="删除这篇练笔"]')
     page.wait_for_timeout(400)
+    if page.locator('.ui-confirm [data-act="yes"]').count():
+        page.locator('.ui-confirm [data-act="yes"]').click()
+    page.wait_for_timeout(400)
     check('删除后记录清空',
           page.evaluate("() => (store.essays||[]).length") == 0
           and '练笔记录' not in page.locator('#view').inner_text())

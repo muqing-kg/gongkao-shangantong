@@ -215,7 +215,7 @@ with sync_playwright() as p:
     }""")
     check('导入保存失败不替换内存且不提示成功', imported['failed']['memory'] == 7 and imported['failed']['persisted'] == 7 and '失败' in imported['failed']['toast'] and '成功' not in imported['failed']['toast'], str(imported))
     check('导入保存成功后刷新仍为新数据', imported['success']['memory'] == 42 and imported['success']['persisted'] == 42 and '导入成功' in imported['success']['toast'], str(imported))
-    reset = page.evaluate("""() => { localStorage.setItem('shangan_fill_TEST','{}'); localStorage.setItem('shangan_papers_v1','{}'); const old=window.confirm; window.confirm=()=>true; confirmReset(); window.confirm=old; return {paper:localStorage.getItem('shangan_papers_v1'),fill:localStorage.getItem('shangan_fill_TEST')}; }""")
+    reset = page.evaluate("""() => { localStorage.setItem('shangan_fill_TEST','{}'); localStorage.setItem('shangan_papers_v1','{}'); confirmReset(); document.querySelector('.ui-confirm [data-act="yes"]')?.click(); return {paper:localStorage.getItem('shangan_papers_v1'),fill:localStorage.getItem('shangan_fill_TEST')}; }""")
     check('清空全部学习数据包含试卷和回填', reset['paper'] is None and reset['fill'] is None, str(reset))
     check('无JS运行错误', not errors, str(errors[:3]))
     browser.close()

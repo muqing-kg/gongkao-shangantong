@@ -2073,11 +2073,34 @@ async function submitEssay(){
   }
 }
 function toggleEssay(id){ essayOpen[id]=!essayOpen[id]; renderEssay(); }
+/* 自定义确认弹窗：替代浏览器原生 confirm（样式不可控，和整站风格不搭） */
+function uiConfirm(message, onOk, okText, title){
+  const wrap=document.createElement('div');
+  wrap.className='ui-confirm';
+  wrap.innerHTML=`<div class="ui-confirm-box" role="dialog" aria-modal="true">
+    <h3>${esc(title||'确认一下')}</h3><p>${esc(message)}</p>
+    <div class="ui-confirm-btns">
+      <button class="btn" data-act="no">取消</button>
+      <button class="btn primary" data-act="yes">${esc(okText||'确定')}</button>
+    </div></div>`;
+  const onKey=e=>{ if(e.key==='Escape') close(); };
+  function close(){ wrap.remove(); document.removeEventListener('keydown', onKey); }
+  wrap.addEventListener('click',e=>{
+    const act=e.target.closest('[data-act]')?.dataset.act;
+    if(act==='yes'){ close(); onOk&&onOk(); }
+    else if(act==='no'||e.target===wrap) close();
+  });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(wrap);
+  wrap.querySelector('[data-act="yes"]').focus();
+}
+window.uiConfirm=uiConfirm;
 function delEssay(id){
-  if(!confirm('删除这篇练笔和它的批改反馈？')) return;
-  store.essays=(store.essays||[]).filter(e=>e.id!==id);
-  delete essayOpen[id];
-  save(); renderEssay(); toast('已删除');
+  uiConfirm('删除这篇练笔和它的批改反馈？',()=>{
+    store.essays=(store.essays||[]).filter(e=>e.id!==id);
+    delete essayOpen[id];
+    save(); renderEssay(); toast('已删除');
+  },'删除');
 }
 function clearEssayForm(){
   if($('#essayReq')) $('#essayReq').value='';
@@ -2154,12 +2177,13 @@ function bankCacheStatusText(){
   return '完整题库尚未加载';
 }
 async function clearBankCache(){
-  if(!confirm('只清理约 150MB 的完整题库缓存？作答记录、错题本和个人画像不会删除。')) return;
-  try{
-    if(window.clearFullBankCache) await window.clearFullBankCache();
-    toast('题库缓存已清理，下次访问将重新下载','ok');
-    if(currentView()==='more') renderMore();
-  }catch(e){ toast(e?.message||'题库缓存清理失败','error'); }
+  uiConfirm('只清理约 150MB 的完整题库缓存？作答记录、错题本和个人画像不会删除。',async()=>{
+    try{
+      if(window.clearFullBankCache) await window.clearFullBankCache();
+      toast('题库缓存已清理，下次访问将重新下载','ok');
+      if(currentView()==='more') renderMore();
+    }catch(e){ toast(e?.message||'题库缓存清理失败','error'); }
+  },'清理');
 }
 function renderMore(){
   const due=reviewDue();
@@ -2243,14 +2267,14 @@ function importData(input){
   reader.readAsText(f);
 }
 function confirmReset(){
-  if(confirm('确定清空全部学习数据吗？此操作不可恢复，建议先导出备份。')){
+  uiConfirm('确定清空全部学习数据吗？此操作不可恢复，建议先导出备份。',()=>{
     store=JSON.parse(JSON.stringify(DEF));
     localStorage.removeItem(PAPER_KEY);
     const fillKeys=[];
     for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i); if(key?.startsWith('shangan_fill_')) fillKeys.push(key); }
     fillKeys.forEach(key=>localStorage.removeItem(key));
     save(); renderView('more'); toast('学习数据、试卷和回填答案已清空');
-  }
+  },'清空');
 }
 function toggleReview(){ store.settings.reviewOn=!store.settings.reviewOn; save(); renderMore(); }
 
@@ -2475,9 +2499,12 @@ document.addEventListener('keydown',e=>{
 $('#quizClose').onclick=function(){
   clearInterval(Q.timer);
   const answering=Q.mode!=='review'&&Object.keys(Q.answers).length<Q.list.length;
-  if(answering&&!confirm('还有题目未作答，确定退出？')) return;
-  stopAskRecognizers();
-  $('#quizLayer').classList.add('hidden'); document.body.style.overflow=''; modalBackground(false);
+  const doClose=()=>{
+    stopAskRecognizers();
+    $('#quizLayer').classList.add('hidden'); document.body.style.overflow=''; modalBackground(false);
+  };
+  if(answering){ uiConfirm('还有题目未作答，确定退出？',doClose,'退出'); return; }
+  doClose();
 };
 
 /* 主导航与轻量古风交互 */

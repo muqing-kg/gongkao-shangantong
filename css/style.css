@@ -548,3 +548,24 @@ body{overflow-x:hidden;overflow-x:clip}
 .quiz-layer{display:none!important}
 .quiz-layer:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;padding:20px}
 #quizLayer:not(.hidden){flex-direction:column!important}
+/* ==========================================================================
+   修正：弹层阴影 / 麦克风椭圆 / 自定义确认弹窗
+   ========================================================================== */
+/* 1. 去掉答题弹层周围那圈灰影 */
+#quizLayer .quiz-foot{box-shadow:none!important}
+#quizLayer .quiz-head{box-shadow:none!important}
+.quiz-layer .q-stem,.quiz-layer .q-opt,.quiz-layer .card{box-shadow:0 1px 3px rgba(147,107,86,.06)!important}
+#quizLayer{box-shadow:none!important;filter:none!important}
+/* 2. 麦克风：别被拉伸成椭圆 */
+.ask-row{align-items:center!important}
+.ask-mic{width:46px!important;height:46px!important;min-height:46px!important;max-height:46px!important;flex:none;align-self:center!important;border-radius:50%!important;overflow:hidden}
+.ask-mic-img{width:20px!important;height:20px!important;object-fit:contain;display:block}
+/* 3. 自定义确认弹窗 */
+.ui-confirm{position:fixed;inset:0;z-index:400;display:grid;place-items:center;background:rgba(74,59,46,.42);padding:24px}
+.ui-confirm-box{width:100%;max-width:380px;background:var(--card);border-radius:22px;padding:26px 24px 20px;
+  box-shadow:0 20px 60px rgba(74,59,46,.26);text-align:center;animation:uiConfirmIn .18s ease-out}
+@keyframes uiConfirmIn{from{opacity:0;transform:translateY(10px) scale(.97)}}
+.ui-confirm-box h3{font-family:var(--font-title,"Songti SC",serif);font-size:17px;color:#3F3025;margin:0 0 10px}
+.ui-confirm-box p{margin:0 0 20px;color:var(--ink-2);font-size:14px;line-height:1.7}
+.ui-confirm-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ui-confirm-btns .btn{min-height:44px}

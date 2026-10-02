@@ -98,9 +98,12 @@ with sync_playwright() as p:
 
     # 键盘 Escape 退出答题层
     page.evaluate("startQuiz(allQuestions().slice(0,1),'快捷键测试')")
-    page.once('dialog', lambda d: d.accept())
     page.keyboard.press('Escape')
-    page.wait_for_timeout(150)
+    page.wait_for_timeout(250)
+    # 未作答退出会弹自定义确认弹窗，点「退出」
+    if page.locator('.ui-confirm [data-act="yes"]').count():
+        page.locator('.ui-confirm [data-act="yes"]').click()
+    page.wait_for_timeout(300)
     check('D-Escape关闭答题层', page.locator('#quizLayer.hidden').count() == 1)
 
     check('验收-无JS错误', not js_errors, str(js_errors[:3]))
