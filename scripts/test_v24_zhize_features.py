@@ -52,14 +52,14 @@ with sync_playwright() as p:
     check("语音结束后恢复非录音状态", page.locator('[data-mic="home"]').get_attribute('aria-pressed') == 'false')
 
     page.evaluate("if(window.LAZY_BANK_STATUS) window.LAZY_BANK_STATUS.loaded=true; switchTab('practice')")
-    check("行测一级页使用行测研习标题", page.locator('.page-heading').first.inner_text().startswith('行测研习'))
+    check("行测一级页使用行测标题", page.locator('.page-heading').first.inner_text().startswith('行测'))
     check("行测一级页集中每日练习模考和错题入口", all(page.get_by_role('button', name=name).count() for name in ['每日研习', '模拟策试', '错题温习']))
 
     page.evaluate("switchTab('shenlun')")
-    check("申论一级页使用申论书房标题", page.locator('.page-heading').first.inner_text().startswith('申论书房'))
+    check("申论一级页使用申论标题", page.locator('.page-heading').first.inner_text().startswith('申论'))
 
     page.evaluate("switchTab('growth')")
-    check("成长一级页使用修业成长标题", page.locator('.page-heading').first.inner_text().startswith('修业成长'))
+    check("成长一级页使用成长标题", page.locator('.page-heading').first.inner_text().startswith('成长'))
     check("修业成长提供能力图谱与错题温习", all(page.get_by_role('button', name=name).count() for name in ['能力图谱', '错题温习']))
 
     page.evaluate("switchTab('ai')")

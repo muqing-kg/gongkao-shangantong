@@ -913,7 +913,7 @@ function renderView(v){
 
 function renderGrowth(){
   const due=reviewDue(), total=store.attempts.length, correct=store.attempts.filter(a=>a.ok).length;
-  $('#view').innerHTML=`<header class="page-heading"><span>修业成长</span><h1>看见趋势，也看见每一步</h1><p>致学力来自练习、稳定性、复习完成度与专注积累，不等同于考试分数。</p></header>
+  $('#view').innerHTML=`<header class="page-heading"><span>成长</span><h1>看看走到哪了</h1><p>正确率、用时、薄弱点、学习计划。</p></header>
   <section class="academy-grid">
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/stopwatch.png" alt=""></span><h3>学习计划</h3><p>${planSummaryText()}</p><button class="btn primary" onclick="openGrowthTool('plan')">查看计划</button></article>
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/analyze.png" alt=""></span><h3>能力图谱</h3><p>基于 ${total} 次作答，梳理模块、考点、难度、来源和用时表现。</p><button class="btn primary" onclick="openGrowthTool('ability')">能力图谱</button></article>
@@ -930,7 +930,7 @@ function openGrowthTool(tool){
   else renderMore();
 }
 function renderAi(){
-  $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>有依据地解释，有边界地建议</h1><p>问学于泽，明理而行。它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<div class="notice">要问<b>具体某道题</b>，在答题页答完后、或逐题回顾里，题目下方会出现输入框——那里会带上题干、选项与题库原始解析。这一页适合问备考方法。</div>`;
+  $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>问不明白的</h1><p>它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<div class="notice">要问<b>具体某道题</b>，在答题页答完后、或逐题回顾里，题目下方会出现输入框——那里会带上题干、选项与题库原始解析。这一页适合问备考方法。</div>`;
 }
 const UI_SCENE_OPTIONS=[['mountains','远山'],['lake','烟水'],['bamboo','竹影'],['cloud','云水'],['plum','疏梅'],['bridge','柳桥'],['moon','月隐'],['lotus','清荷'],['paper','素宣'],['none','无背景']];
 function renderProfile(){ renderMore(); }
@@ -1093,8 +1093,8 @@ function renderDash(){
   const V=$('#view');
   V.innerHTML=`
   <div class="hero">
-    <h1>同舟共济 · 今日备考</h1>
-    <div class="sub">${ci.answered? `今日已练 ${ci.answered} 题，正确 ${ci.correct} 题`:'今日还没开始，刷几题保持手感吧！'}</div>
+    <h1>今天也一起</h1>
+    <div class="sub">${ci.answered? `今天做了 ${ci.answered} 题，对了 ${ci.correct} 题`:'还没开始呢，不着急'}</div>
     <div class="hero-stats">
       <div class="hs"><b>${store.stats.answered}</b><span>累计做题</span></div>
       <div class="hs"><b>${acc}%</b><span>总正确率</span></div>
@@ -1166,7 +1166,7 @@ function quickStart(which){
 /* ============ 刷题 ============ */
 function renderPractice(){
   $('#view').innerHTML=`
-  <header class="page-heading"><span>行测研习</span><h1>分门研习，及时温故</h1><p>专项练习、每日研习、限时自测与错题温习统一归入行测。</p></header>
+  <header class="page-heading"><span>行测</span><h1>一道一道来</h1><p>专项练习、每日一练、限时自测、错题温习。</p></header>
   <div class="academy-grid practice-tools"><article class="card tool-card"><span><img class="mark-img" src="assets/illus/mark/daily.png" alt=""></span><h3>每日研习</h3><button class="btn" onclick="switchTab('daily')">每日研习</button></article><article class="card tool-card"><span><img class="mark-img" src="assets/illus/mark/mockexam.png" alt=""></span><h3>模拟策试</h3><button class="btn" onclick="switchTab('exam')">模拟策试</button></article><article class="card tool-card"><span><img class="mark-img" src="assets/illus/mark/wrongbook.png" alt=""></span><h3>错题温习</h3><button class="btn" onclick="switchTab('wrongbook')">错题温习</button></article></div>
   <div class="card"><h3><span class="dot"></span>选择模块开始刷题</h3><div class="muted mb10">每模块 ${MODS.map(m=>`${m} ${QUESTION_BANK[m].length}题`).join(' · ')}</div>
     <div class="mod-list">
@@ -2114,7 +2114,7 @@ function renderShenlun(cat){
   const cur=cat||'全部';
   const items=[...SHENLUN_BANK.filter(s=>cur==='全部'||s.cat===cur), ...store.customSl.filter(s=>cur==='全部'||s.cat===cur)];
   $('#view').innerHTML=`
-  <header class="page-heading"><span>申论书房</span><h1>读材料，积素材，练表达</h1><p>金句、热点、案例与写作框架集中整理；学习数据仍保存在本地。</p></header>
+  <header class="page-heading"><span>申论</span><h1>读材料，练表达</h1><p>真题、素材、练笔，都在这儿。</p></header>
   <div class="card"><h3><span class="dot"></span> 申论真题</h3>
     <div class="muted mb10">国考申论真题 2022–2025（副省／地市／行政执法）共 12 份卷 59 题，含材料与参考答案。先自己写，再对照。</div>
     <div class="btn-row"><button class="btn primary" onclick="renderShenlunPapers()">去做真题</button></div>
@@ -2187,7 +2187,7 @@ async function clearBankCache(){
 }
 function renderMore(){
   const due=reviewDue();
-  $('#view').innerHTML=`
+  $('#view').innerHTML=`<header class="page-heading"><span>设置</span><h1>数据和偏好</h1><p>备份、缓存、背景、隐私说明。</p></header>
   <div class="card"><h3><span class="dot"></span>打卡日历</h3>
     <div class="muted mb10">连续打卡 ${streakDays()} 天，共打卡 ${Object.keys(store.checkins).length} 天。每天首次完成练习即自动打卡。</div>
     <div class="cal-wrap"><div class="weekdays">${'一二三四五六日'.split('').map(w=>`<span>${w}</span>`).join('')}</div><div class="cal-grid">${heatmap()}</div></div>

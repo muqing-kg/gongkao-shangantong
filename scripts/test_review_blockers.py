@@ -136,7 +136,7 @@ with sync_playwright() as p:
           return {waiting,latest,settled,normal,heading:document.querySelector('.page-heading')?.innerText||''};
         }""")
         check("等待题库期间最后一次导航获胜", navigation["latest"] == "shenlun" and navigation["settled"] == "shenlun", str(navigation))
-        check("没有新导航时题库就绪后进入原目标", navigation["normal"] == "practice" and navigation["heading"].startswith("行测研习"), str(navigation))
+        check("没有新导航时题库就绪后进入原目标", navigation["normal"] == "practice" and navigation["heading"].startswith("行测"), str(navigation))
 
     check("阻断项测试无 JavaScript 运行错误", not errors, str(errors[:5]))
     browser.close()

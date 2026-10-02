@@ -27,9 +27,9 @@ with sync_playwright() as p:
         page.locator(".brand-name").inner_text().splitlines() == ["同舟共济", "一起渡过这段路"],
         page.locator(".brand-name").inner_text(),
     )
-    check("品牌图标使用内联SVG而非单字占位", page.locator(".brand-logo svg").count() == 1)
+    check("品牌图标使用生成的小舟插画", page.locator('.brand-logo img[src*="logo-boat"]').count() == 1)
 
-    expected = ["学堂首页", "行测研习", "申论书房", "修业成长", "上岸小助手", "设置"]
+    expected = ["首页", "行测", "申论", "成长", "上岸小助手", "设置"]
     labels = page.locator(".tabbar .tab").all_inner_texts()
     check("桌面一级导航顺序正确", labels == expected, str(labels))
     check("桌面一级导航六项均可见", page.locator(".tabbar .tab:visible").count() == 6)
@@ -71,7 +71,7 @@ with sync_playwright() as p:
         })"""
     )
     check("移动端使用固定底栏", mobile["position"] == "fixed", str(mobile))
-    check("移动端底栏保留五项且顶部提供问泽", mobile["visible"] == ["学堂首页", "行测研习", "申论书房", "修业成长", "设置"] and mobile["askVisible"], str(mobile))
+    check("移动端底栏保留五项且顶部提供问泽", mobile["visible"] == ["首页", "行测", "申论", "成长", "设置"] and mobile["askVisible"], str(mobile))
     check("390px 全局壳无横向溢出", mobile["overflow"], str(mobile))
     check("阶段1无JavaScript运行错误", not errors, str(errors[:5]))
     browser.close()
