@@ -1,4 +1,4 @@
-/* ============ 致泽学堂 · 考公学习神器 ============ */
+/* ============ 同舟共济 · 考公学习神器 ============ */
 /* 纯前端、零依赖、本地存储、离线可用 */
 
 /* ---------- 工具 ---------- */
@@ -31,6 +31,31 @@ function safeImageUrl(value){
 function imageHtml(url, className='q-img'){
   const safe=safeImageUrl(url); if(!safe) return '';
   return `<img class="${className}" src="${esc(safe)}" alt="图" loading="lazy" onclick="event.stopPropagation();window.open(this.src,'_blank','noopener,noreferrer')">`;
+}
+/* 极简 Markdown 渲染：只覆盖 AI 实际会用的语法（标题/列表/加粗/斜体/行内码/引用）。
+   先 esc() 再替换，AI 输出里的 HTML 不会被执行。
+   刻意不引 marked 之类的库——项目是零依赖纯前端。表格不支持，AI 也很少用。 */
+function mdToHtml(src){
+  const inline = s => s
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  let out='', list=null;
+  const closeList=()=>{ if(list){ out+=`</${list}>`; list=null; } };
+  for(const raw of esc(String(src??'')).split('\n')){
+    const line=raw.replace(/\s+$/,'');
+    let m;
+    if(!line.trim()){ closeList(); out+='<div class="md-gap"></div>'; continue; }
+    if((m=line.match(/^\s*(#{1,4})\s+(.*)$/))){ closeList(); out+=`<div class="md-h md-h${m[1].length}">${inline(m[2])}</div>`; continue; }
+    if((m=line.match(/^\s*[-*+]\s+(.*)$/))){ if(list!=='ul'){ closeList(); out+='<ul class="md-ul">'; list='ul'; } out+=`<li>${inline(m[1])}</li>`; continue; }
+    if((m=line.match(/^\s*\d+[.、)]\s+(.*)$/))){ if(list!=='ol'){ closeList(); out+='<ol class="md-ol">'; list='ol'; } out+=`<li>${inline(m[1])}</li>`; continue; }
+    // 注意：esc() 已把 > 转成 &gt;，引用检测要匹配转义后的形式
+    if((m=line.match(/^\s*&gt;\s?(.*)$/))){ closeList(); out+=`<div class="md-quote">${inline(m[1])}</div>`; continue; }
+    closeList();
+    out+=`<div class="md-p">${inline(line)}</div>`;
+  }
+  closeList();
+  return out;
 }
 function toast(msg, type){ const t=$('#toast'); t.textContent=msg; t.className='toast '+ (type||''); t.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.add('hidden'), 2200); }
 /* 多选/不定项判定与显示 */
@@ -84,13 +109,20 @@ function renderMat(q){
   return s;
 }
 const MODS = Object.keys(QUESTION_BANK);
-const MOD_ICO = {'常识判断':'🧠','言语理解':'🗣️','数量关系':'🔢','判断推理':'🧩','资料分析':'📊','政治理论':'🏛️'};
+/* 模块图标：值直接是 SVG 字符串，沿用原来的插值方式，其它调用点无需改动 */
+const MOD_ICON_NAME = {'常识判断':'bulb','言语理解':'speech','数量关系':'number','判断推理':'puzzle','资料分析':'pie','政治理论':'gov'};
+const MOD_ICO = Object.fromEntries(Object.entries(MOD_ICON_NAME).map(([k,v])=>[k, `<img class="mod-ico" src="assets/illus/mod/${v}.png" alt="">`]));
 const MOD_COLOR = {'常识判断':'#3d7edb','言语理解':'#3aa876','数量关系':'#e0962f','判断推理':'#8e6fd8','资料分析':'#d96a4f','政治理论':'#c0392b'};
 
 /* ---------- 存储 ---------- */
 const KEY='shangan_tong_v1';
 const ATT_LIMIT=3000;
-const DEF = { wrongs:{}, checkins:{}, stats:{answered:0,correct:0,byMod:{},daily:[]}, favs:[], customSl:[], pomo:{count:0,minutes:0}, attempts:[], settings:{dailyCount:10,reviewOn:true} };
+/* 错因：三种错因的对策完全不同——不会→补知识点，来不及→练取舍，粗心→练审题。
+   不区分就等于把三个病当成一个病治。 */
+const WHY_OPTIONS=['不会','来不及','粗心','蒙的'];
+const WHY_COLOR={'不会':'var(--red)','来不及':'#e0962f','粗心':'var(--gold)','蒙的':'#8e6fd8'};
+const ESSAY_LIMIT=30;      // 练笔记录上限，超出丢弃最旧的
+const DEF = { wrongs:{}, checkins:{}, stats:{answered:0,correct:0,byMod:{},daily:[]}, favs:[], customSl:[], pomo:{count:0,minutes:0}, attempts:[], plan:{exam:'',date:'',daily:60}, essays:[], settings:{dailyCount:10,reviewOn:true,lastExport:0} };
 let store = load();
 function isRecord(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
 function finiteNonNegative(v,fallback=0){ const n=Number(v); return Number.isFinite(n)&&n>=0?n:fallback; }
@@ -106,7 +138,7 @@ function normalizeStore(d, strict=false){
   };
   const checkins={};
   if(isRecord(d.checkins)) for(const [date,v] of Object.entries(d.checkins)) if(/^\d{4}-\d{2}-\d{2}$/.test(date)&&isRecord(v)) checkins[date]={answered:finiteNonNegative(v.answered),correct:finiteNonNegative(v.correct),dailyAnswered:finiteNonNegative(v.dailyAnswered),dailyCorrect:finiteNonNegative(v.dailyCorrect)};
-  const attempts=Array.isArray(d.attempts)?d.attempts.filter(isRecord).filter(a=>MODS.includes(a.mod)).slice(-ATT_LIMIT).map(a=>({t:finiteNonNegative(a.t),d:/^\d{4}-\d{2}-\d{2}$/.test(String(a.d||''))?String(a.d):'',qid:safeText(a.qid||''),mod:a.mod,ok:!!a.ok,src:safeText(a.src||''),point:safeText(a.point||''),rate:Number.isFinite(Number(a.rate))?Number(a.rate):null,dur:finiteNonNegative(a.dur),multi:!!a.multi,type:safeText(a.type||''),txn:safeText(a.txn||'')})):[];
+  const attempts=Array.isArray(d.attempts)?d.attempts.filter(isRecord).filter(a=>MODS.includes(a.mod)).slice(-ATT_LIMIT).map(a=>({t:finiteNonNegative(a.t),d:/^\d{4}-\d{2}-\d{2}$/.test(String(a.d||''))?String(a.d):'',qid:safeText(a.qid||''),mod:a.mod,ok:!!a.ok,src:safeText(a.src||''),point:safeText(a.point||''),rate:Number.isFinite(Number(a.rate))?Number(a.rate):null,dur:finiteNonNegative(a.dur),multi:!!a.multi,type:safeText(a.type||''),txn:safeText(a.txn||''),why:WHY_OPTIONS.includes(a.why)?a.why:''})):[];
   return {
     wrongs:isRecord(d.wrongs)?Object.fromEntries(Object.entries(d.wrongs).filter(([,w])=>isRecord(w)).map(([id,w])=>[id,{count:finiteNonNegative(w.count,1),mastered:!!w.mastered,lastWrong:/^\d{4}-\d{2}-\d{2}$/.test(String(w.lastWrong||''))?String(w.lastWrong):''}])):{},
     checkins, stats,
@@ -114,7 +146,18 @@ function normalizeStore(d, strict=false){
     customSl:Array.isArray(d.customSl)?d.customSl.filter(isRecord).map(s=>({cat:safeText(s.cat||'我的笔记'),title:safeText(s.title||''),body:safeText(s.body||''),custom:true})).filter(s=>s.title&&s.body):[],
     pomo:{count:finiteNonNegative(d.pomo?.count),minutes:finiteNonNegative(d.pomo?.minutes)},
     attempts,
-    settings:{dailyCount:Math.min(100,Math.max(1,Math.round(finiteNonNegative(d.settings?.dailyCount,DEF.settings.dailyCount)))),reviewOn:d.settings?.reviewOn!==false}
+    plan:{
+      exam:safeText(d.plan?.exam||'').slice(0,30),
+      date:/^\d{4}-\d{2}-\d{2}$/.test(String(d.plan?.date||''))?String(d.plan.date):'',
+      daily:Math.min(200,Math.max(10,Math.round(finiteNonNegative(d.plan?.daily,60))||60))
+    },
+    essays:Array.isArray(d.essays)?d.essays.filter(isRecord).slice(-ESSAY_LIMIT).map(e=>({
+      id:safeText(e.id||''), at:finiteNonNegative(e.at),
+      requirement:safeText(e.requirement||'').slice(0,2000),
+      body:safeText(e.body||'').slice(0,6000),
+      feedback:safeText(e.feedback||'').slice(0,6000)
+    })).filter(e=>e.id&&e.body):[],
+    settings:{dailyCount:Math.min(100,Math.max(1,Math.round(finiteNonNegative(d.settings?.dailyCount,DEF.settings.dailyCount)))),reviewOn:d.settings?.reviewOn!==false,lastExport:finiteNonNegative(d.settings?.lastExport)}
   };
 }
 function load(){ try{ return normalizeStore(JSON.parse(localStorage.getItem(KEY))); }catch(e){ return JSON.parse(JSON.stringify(DEF)); } }
@@ -123,7 +166,7 @@ function save(nextStore=store){
   catch(_){ toast('本地存储空间不足，请先导出备份并清理旧数据','error'); return false; }
 }
 
-/* ---------- 致泽学堂环境偏好（与学习备份相互独立） ---------- */
+/* ---------- 同舟共济环境偏好（与学习备份相互独立） ---------- */
 const UI_PREF_KEY='zhize_ui_prefs_v1';
 const UI_SCENES=new Set(['mountains','lake','bamboo','cloud','plum','bridge','moon','lotus','paper','none']);
 function loadUiPrefs(){
@@ -158,7 +201,7 @@ function bankProgressView(st, state){
   el.classList.toggle('error',state==='error');
   const bar=el.querySelector('i'), label=el.querySelector('span');
   if(bar) bar.style.width=`${pct}%`;
-  if(label) label.textContent=state==='error'?'题库加载失败':state==='loaded'?(st?.cacheHit?'⚡ 缓存题库已就绪':'✓ 完整题库已就绪'):`完整题库 ${pct}%`;
+  if(label) label.textContent=state==='error'?'题库加载失败':state==='loaded'?(st?.cacheHit?' 缓存题库已就绪':' 完整题库已就绪'):`完整题库 ${pct}%`;
   if(state==='loaded') bankProgressView._t=setTimeout(()=>el.classList.add('hidden'),3500);
 }
 window.addEventListener('sat:bank-loading',e=>bankProgressView(e.detail,'loading'));
@@ -207,7 +250,7 @@ function logAttempt(target, q, picked, correct, durSec, txn=''){
     rate: qRateOf(q),
     dur: durSec||0,
     multi: !!q.multi,
-    type: q.type||'', txn,
+    type: q.type||'', txn, why: '',
   };
   target.attempts.push(att);
   if(target.attempts.length>ATT_LIMIT) target.attempts.splice(0, target.attempts.length-ATT_LIMIT);
@@ -239,11 +282,407 @@ function sourceBand(src){
   return s?'其他':'未知';
 }
 
+/* ---------- 配速诊断（行测做不完的根因多半是取舍，不是不会） ---------- */
+/* 刻意不引入外部“标准用时”：省考各省卷面时长与题量都不同，硬套参考值会误导。
+   这里只做「相对她自己的中位数」四象限判断，再教她用自己的卷面算每题预算。 */
+const PACE_ZONE={
+  faststrong:{name:'优势区',color:'var(--green)',tip:'快且准，考试先做、把分拿满'},
+  fastweak:{name:'潜力区',color:'var(--gold)',tip:'做得快但错得多，补知识点收益最大'},
+  slowstrong:{name:'稳但慢',color:'#e0962f',tip:'做得准但耗时，需要专门练提速'},
+  slowweak:{name:'时间黑洞',color:'var(--red)',tip:'又慢又错，考试放最后、限时、做不出直接蒙'}
+};
+function paceMedian(arr){
+  const s=[...arr].sort((a,b)=>a-b), m=s.length>>1;
+  return s.length%2? s[m] : Math.round((s[m-1]+s[m])/2);
+}
+function paceDiag(){
+  const atts=store.attempts.filter(a=>a.dur>0);
+  if(atts.length<20) return null;                       // 样本太少不下结论
+  const byMod={};
+  atts.forEach(a=>{ const s=byMod[a.mod]||(byMod[a.mod]={n:0,c:0,dur:0}); s.n++; a.ok&&s.c++; s.dur+=a.dur; });
+  const rows=MODS.filter(m=>byMod[m]).map(m=>{ const s=byMod[m];
+    return {mod:m,n:s.n,acc:Math.round(s.c/s.n*100),avg:Math.round(s.dur/s.n)}; });
+  if(rows.length<2) return null;
+  const medAcc=paceMedian(rows.map(r=>r.acc)), medDur=paceMedian(rows.map(r=>r.avg));
+  rows.forEach(r=>{ r.zone=(r.avg>medDur?'slow':'fast')+(r.acc<medAcc?'weak':'strong'); });
+  rows.sort((a,b)=>a.avg-b.avg);
+  const slowest=Math.max(...rows.map(r=>r.avg));
+  return {
+    rows, medAcc, medDur, slowest,
+    n:atts.length,
+    overall:Math.round(atts.reduce((s,a)=>s+a.dur,0)/atts.length),
+    over:atts.filter(a=>a.dur>=90).length,
+    hole:[...rows].filter(r=>r.zone==='slowweak').sort((a,b)=>b.avg-a.avg)[0]||null,
+    base:[...rows].filter(r=>r.zone==='faststrong').sort((a,b)=>b.acc-a.acc)[0]||null
+  };
+}
+function paceCardHtml(){
+  const p=paceDiag(); if(!p) return '';
+  return `<div class="card"><h3><span class="dot"></span>${ico('clock')} 配速诊断</h3>
+    <div class="muted mb10">基于最近 ${p.n} 次带计时的作答，平均每题 <b>${p.overall} 秒</b>；其中 ${p.over} 题（${Math.round(p.over/p.n*100)}%）单题超过 90 秒。行测做不完多半不是不会，而是取舍——先看清时间花在哪。</div>
+    ${p.rows.map(r=>{ const z=PACE_ZONE[r.zone];
+      return `<div class="r-mod"><div style="display:flex;justify-content:space-between;font-size:13px;gap:8px"><span>${MOD_ICO[r.mod]} ${r.mod}</span><span class="muted" style="font-weight:400">${r.avg}s/题 · ${r.acc}% · <b style="color:${z.color}">${z.name}</b></span></div>
+      <div class="rm-bar"><div class="rm-fill" style="width:${Math.min(100,Math.round(r.avg/p.slowest*100))}%;background:${z.color}"></div></div></div>`;}).join('')}
+    <div class="muted mt8">${p.hole? `${ico('alert')} <b style="color:var(--red)">${p.hole.mod}</b> 是当前的时间黑洞：平均 ${p.hole.avg} 秒一题、正确率 ${p.hole.acc}%。考试时放到最后，限时做，做不出来就果断蒙一个——把时间还给会做的题。`:'目前没有出现「又慢又错」的模块。'}${p.base? ` ${ico('check')} <b style="color:var(--green)">${p.base.mod}</b> 是基本盘（${p.base.avg} 秒/题、${p.base.acc}%），考试先做这部分把分拿稳。`:''}</div>
+    <div class="muted mt8">每题预算怎么算：<b>你报考省份的卷面总时长 ÷ 总题量</b>。拿这个数跟上面的实际用时比，超出的模块就是要练取舍的地方。</div>
+  </div>`;
+}
+
+/* ---------- 错因标注（不会 / 来不及 / 粗心 / 蒙的） ---------- */
+function whyOf(qid){
+  for(let i=store.attempts.length-1;i>=0;i--) if(store.attempts[i].qid===qid) return store.attempts[i].why||'';
+  return '';
+}
+function markWhy(qid, why){
+  for(let i=store.attempts.length-1;i>=0;i--){
+    if(store.attempts[i].qid!==qid) continue;
+    const a=store.attempts[i];
+    a.why = a.why===why? '' : why;      // 再点一次即取消
+    save(); renderReview();
+    return;
+  }
+}
+function whyStats(){
+  const wrong=store.attempts.filter(a=>!a.ok);
+  const labeled=wrong.filter(a=>a.why);
+  if(labeled.length<5) return null;      // 样本太少不下结论
+  const by={};
+  labeled.forEach(a=>{ by[a.why]=(by[a.why]||0)+1; });
+  const rows=WHY_OPTIONS.filter(w=>by[w]).map(w=>({why:w,n:by[w],pct:Math.round(by[w]/labeled.length*100)}))
+    .sort((a,b)=>b.n-a.n);
+  return {rows, labeled:labeled.length, unlabeled:wrong.length-labeled.length, top:rows[0]||null};
+}
+const WHY_ADVICE={  '不会':'错因以「不会」为主——这是知识点缺口，去错题本和薄弱考点清单补，不是刷题量的问题。',
+  '来不及':'错因以「来不及」为主——这是取舍问题，不是能力问题。看上面的配速诊断，把时间黑洞模块放到最后并限时。',
+  '粗心':'错因以「粗心」为主——这是审题问题。刷更多题不会改善，建议放慢读题、圈出题干关键词、选项逐个排除。',
+  '蒙的':'错因以「蒙的」为主——基础还不牢，回到简单档题目把底子打扎实，别急着做难题。'
+};
+function whyCardHtml(){
+  const s=whyStats(); if(!s) return '';
+  return `<div class="card"><h3><span class="dot"></span>${ico('compass')} 失分结构（错因分布）</h3>
+    <div class="muted mb10">已标注 ${s.labeled} 道错题${s.unlabeled? `，还有 ${s.unlabeled} 道未标注——在逐题回顾里点一下即可`:''}。</div>
+    ${s.rows.map(r=>`<div class="r-mod"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${r.why}</span><span style="font-weight:700">${r.n} 题 · ${r.pct}%</span></div>
+      <div class="rm-bar"><div class="rm-fill" style="width:${r.pct}%;background:${WHY_COLOR[r.why]}"></div></div></div>`).join('')}
+    <div class="muted mt8">${s.top? ' '+WHY_ADVICE[s.top.why] : ''}</div>
+  </div>`;
+}
+function wrongReasonHtml(q, chosen){
+  if(Q.mode!=='review' || isCorrect(q,chosen)) return '';   // 只对错题/未作答问错因
+  const cur=whyOf(q.id), busy=aiBusy.why===q.id, aiOn=!!window.AI?.ready();
+  return `<div class="why-box"><div class="muted mb10">这题为什么错？标注后可在「能力分析 → 失分结构」看到自己的错因占比。</div>
+    <div class="why-row">${WHY_OPTIONS.map(w=>`<button type="button" class="why-chip ${cur===w?'on':''}" aria-pressed="${cur===w}" onclick="markWhy(decodeURIComponent('${inlineArg(q.id)}'),'${w}')">${w}</button>`).join('')}</div>
+    <div class="muted mt8">${busy? 'AI 正在判断…' : (cur? `已标注：<b>${cur}</b>（再点一次可取消）`:'未标注')}</div>
+    ${aiOn? `<div class="btn-row"><button class="btn small" onclick="aiGuessWhy()" ${busy?'disabled':''}>${ico('robot')} 让 AI 猜一下</button></div>
+      <div class="muted">AI 只给建议，最终以你自己的判断为准。</div>`:''}
+  </div>`;
+}
+
+/* ---------- AI 预判错因（AI 只给建议，她可改） ---------- */
+const AI_WHY_SYSTEM=`你在帮一位备考省考的考生判断他做错一道题的原因。只能从下面四个里选一个：
+不会 —— 知识点没掌握，思路方向就错了
+来不及 —— 会做但耗时太久，或赶时间没想清楚
+粗心 —— 看漏了题干关键词、抄错、掉进干扰项
+蒙的 —— 完全没思路，随机选的
+判断依据：
+1. 他选的答案是不是一个“像样”的干扰项（像样 → 更可能粗心或不会；完全离谱 → 更可能蒙的）
+2. 这道题的用时相对他自己的平均用时（明显超出 → 更可能来不及）
+3. 题干里有没有容易看漏的限定词（如“不属于”“错误的是”）
+只输出一行，不要任何多余文字，格式固定为：
+错因｜一句话理由`;
+
+function aiWhyPrompt(q, chosen, dur, avgDur){
+  const opts=(q.options||[]).map((o,i)=>`${'ABCD'[i]}. ${safeText(o)}`).join('\n');
+  const mine = chosen===undefined? '未作答' : (q.multi? qAnsText(q,chosen) : 'ABCD'[chosen]);
+  return [
+    `【题目】模块：${q.mod} · 题型：${q.type||'—'}`,
+    `题干：${safeText(q.stem).slice(0,1200)}`,
+    opts,
+    `正确答案：${q.multi? String(q.answer) : 'ABCD'[q.answer]}`,
+    `我的答案：${mine}`,
+    `这道题用时：${dur} 秒；我的平均每题用时：${avgDur} 秒`,
+    '',
+    '【题库原始解析】',
+    cleanAnalysisText(q.analysis).slice(0,1200) || '（本题没有解析）'
+  ].join('\n');
+}
+async function aiGuessWhy(){
+  const ctx=askQuestionCtx();
+  if(!ctx){ toast('请先进入逐题回顾再让 AI 判断','error'); return; }
+  const {q, chosen}=ctx;
+  if(isCorrect(q,chosen)){ toast('这题答对了，不用判断错因','error'); return; }
+  if(!window.AI?.ready()){ toast('请先到「我的书斋 → AI 接入」配置接口','error'); return; }
+  const a=[...store.attempts].reverse().find(x=>x.qid===q.id);
+  const dur=a?.dur||0;
+  const atts=store.attempts.filter(x=>x.dur>0);
+  const avgDur=atts.length? Math.round(atts.reduce((s,x)=>s+x.dur,0)/atts.length) : 0;
+  aiBusy.why=q.id;
+  renderReview();
+  try{
+    const text=await window.AI.chat(
+      [{role:'system',content:AI_WHY_SYSTEM},{role:'user',content:aiWhyPrompt(q,chosen,dur,avgDur)}],
+      {maxTokens:120, temperature:0.2});
+    const why=WHY_OPTIONS.find(w=>text.includes(w));
+    const reason=(text.split('｜')[1]||text.split('|')[1]||'').trim().slice(0,60);
+    if(!why){ toast('AI 没给出可识别的错因，请手动标注','error'); }
+    else{
+      for(let i=store.attempts.length-1;i>=0;i--) if(store.attempts[i].qid===q.id){ store.attempts[i].why=why; break; }
+      save();
+      toast('AI 判断：'+why+(reason? '（'+reason+'）':''),'ok');
+    }
+  }catch(e){
+    toast(e?.message||'AI 判断失败','error');
+  }finally{
+    aiBusy.why='';
+    renderReview();
+  }
+}
+
+/* ---------- AI 辅助（参与分析、参与制定） ---------- */
+/* 硬约束：只把「学情统计数据」交给 AI，不交题目内容与答案。
+   AI 负责解读数据、给建议、排计划；不负责判断答案对错——
+   本次开发中已实测到 AI 生成的考公内容三次出错（十五五规划、申发论述题型）。 */
+/* AI 结果与进行中状态分开：
+   结果落独立 localStorage（刷新不丢），进行中/错误只存内存（不该持久化）。 */
+const AI_RESULT_KEY='zhize_ai_results_v1';
+const aiBusy={}, aiErrors={};
+function aiResults(){
+  try{ const r=JSON.parse(localStorage.getItem(AI_RESULT_KEY)||'{}'); return (r&&typeof r==='object')?r:{}; }
+  catch(_){ return {}; }
+}
+function aiSaveResult(kind, text){
+  const all=aiResults(); all[kind]={text, at:Date.now()};
+  try{ localStorage.setItem(AI_RESULT_KEY, JSON.stringify(all)); }catch(_){ /* 存储满时仅本次可见 */ }
+}
+function aiClearResult(kind){
+  const all=aiResults(); delete all[kind];
+  try{ localStorage.setItem(AI_RESULT_KEY, JSON.stringify(all)); }catch(_){}
+}
+function aiText(kind){ const r=aiResults()[kind]; return (r&&typeof r.text==='string')?r.text:''; }
+function aiAt(kind){ const r=aiResults()[kind]; return r&&r.at? new Date(r.at):null; }
+function aiRefresh(kind){
+  if(kind==='diag' && growthTool==='ability') renderAnalysis();
+  if(kind==='plan' && growthTool==='plan') renderPlan();
+}
+/* 两个 AI 落点共用一条执行链：查配置 → 置忙 → 调用 → 落盘或记错 → 回绘 */
+async function runAiTask(kind, system, user, opts={}){
+  if(!window.AI?.ready()){ toast('请先到「我的书斋 → AI 接入」配置接口','error'); return false; }
+  aiBusy[kind]=true; aiErrors[kind]='';
+  aiRefresh(kind);
+  try{
+    const text=await window.AI.chat([{role:'system',content:system},{role:'user',content:user}], opts);
+    aiBusy[kind]=false;
+    aiSaveResult(kind, text);
+  }catch(e){
+    aiBusy[kind]=false;
+    aiErrors[kind]=e?.message||String(e);
+  }
+  aiRefresh(kind);
+  return !aiErrors[kind];
+}
+
+const AI_DIAG_SYSTEM=`你是一位公考行测辅导老师，正在给一位备考省考的考生做学情诊断。
+规则：
+1. 只依据我提供的数据判断，不要编造我没给的信息；数据里没提到的方面就不要提。
+2. 不要给出任何题目的答案，也不要猜题。
+3. 用中文，直接、口语化，不要客套话和模板腔。
+4. 严格按下面三段输出，不要加别的小标题：
+【最关键的 2 个问题】每条一句话，说清是什么问题。
+【接下来两周怎么做】3 条具体行动，要可执行、可量化（写清做什么、做多少、多久一次）。
+【一句提醒】
+总字数控制在 350 字以内。`;
+
+const AI_PLAN_SYSTEM=`你是一位公考行测辅导老师，正在给一位备考省考的考生排接下来 7 天的复习安排。
+规则：
+1. 只依据我提供的数据安排，不要编造我没给的信息。
+2. 不要给出任何题目的答案，也不要猜题。
+3. 每天都要具体：练哪个模块、多少题、重点是什么、预计多久。
+4. 必须给「错题复习」留位置；若错因以「来不及」为主，要安排限时取舍练习；
+   若以「不会」为主，要安排知识点补强；若以「粗心」为主，要安排审题专项。
+5. 用中文，直接、可执行，不要客套话。
+严格按下面格式输出，不要加别的内容：
+第 1 天：模块 · 题量 · 重点 · 预计时长
+第 2 天：……
+（共 7 天）
+【本周重点】一句话
+总字数控制在 400 字以内。`;
+
+/* 把本地学情汇总成结构化快照——只含统计量、模块名、考点名，不含题干与答案 */
+function studySnapshot(){
+  const pace=paceDiag(), why=whyStats();
+  const atts=store.attempts.filter(a=>a.dur>0);
+  const mods=MODS.map(m=>{ const b=store.stats.byMod[m]||{answered:0,correct:0};
+    return {mod:m,n:b.answered,acc:b.answered?Math.round(b.correct/b.answered*100):null}; })
+    .filter(x=>x.n>0);
+  return {
+    exam:store.plan.exam||'未设定',
+    date:store.plan.date||'',
+    daysLeft:planDaysLeft(),
+    dailyTarget:planTarget(),
+    todayDone:planDone(),
+    streak:streakDays(),
+    totalAnswered:store.stats.answered,
+    overallAcc:store.stats.answered?Math.round(store.stats.correct/store.stats.answered*100):0,
+    mods,
+    avgDur:atts.length?Math.round(atts.reduce((s,a)=>s+a.dur,0)/atts.length):0,
+    pace: pace? pace.rows.map(r=>({mod:r.mod,avg:r.avg,acc:r.acc,zone:PACE_ZONE[r.zone].name})) : [],
+    why: why? why.rows.map(r=>({why:r.why,n:r.n,pct:r.pct})) : [],
+    weakPoints: MODS.flatMap(m=>weakPoints(m).slice(0,2).map(w=>({mod:m,point:w.point,acc:w.acc,n:w.n}))).slice(0,8)
+  };
+}
+function aiDiagPrompt(s){
+  const L=[];
+  L.push('【考生情况】');
+  L.push(`目标：${s.exam}${s.date? `，考试日期 ${s.date}${s.daysLeft!==null&&s.daysLeft>=0? `（距今 ${s.daysLeft} 天）`:''}`:''}`);
+  L.push(`每日目标 ${s.dailyTarget} 题，今日已完成 ${s.todayDone} 题，连续学习 ${s.streak} 天`);
+  L.push(`累计作答 ${s.totalAnswered} 题，总正确率 ${s.overallAcc}%`);
+  if(s.mods.length){ L.push('','【模块表现】'); s.mods.forEach(m=>L.push(`${m.mod}：正确率 ${m.acc}%（${m.n} 题）`)); }
+  if(s.pace.length){ L.push('','【配速诊断】平均每题 '+s.avgDur+' 秒'); s.pace.forEach(p=>L.push(`${p.mod}：${p.avg} 秒/题，正确率 ${p.acc}%，定位「${p.zone}」`)); }
+  if(s.why.length){ L.push('','【错因分布】'); s.why.forEach(w=>L.push(`${w.why}：${w.n} 题（${w.pct}%）`)); }
+  if(s.weakPoints.length){ L.push('','【薄弱考点】'); s.weakPoints.forEach(w=>L.push(`${w.mod} · ${w.point}：正确率 ${w.acc}%（${w.n} 次）`)); }
+  return L.join('\n');
+}
+async function aiDiagnose(){
+  const s=studySnapshot();
+  if(s.totalAnswered<20){ toast('作答数据太少，先多练一些再让 AI 分析','error'); return; }
+  await runAiTask('diag', AI_DIAG_SYSTEM, aiDiagPrompt(s), {maxTokens:1000, temperature:0.3});
+}
+/* 让 AI 把学情变成未来 7 天的具体安排——复用同一份快照，不额外收集数据 */
+async function aiPlan(){
+  const s=studySnapshot();
+  if(s.totalAnswered<20){ toast('作答数据太少，先多练一些再让 AI 排计划','error'); return; }
+  await runAiTask('plan', AI_PLAN_SYSTEM, aiDiagPrompt(s)+'\n\n请据此排出接下来 7 天每天的具体安排。',
+                  {maxTokens:1200, temperature:0.4});
+}
+/* 两个 AI 卡片共用同一套外壳：未配置 / 进行中 / 出错 / 有结果 / 待触发 */
+function aiCardHtml(kind, title, intro, btnText, action){
+  const at=aiAt(kind), text=aiText(kind);
+  const head=`<h3><span class="dot"></span>${title}${text? ' <span class="tag">AI 生成 · 仅供参考</span>':''}</h3>`;
+  if(!window.AI?.ready()){
+    return `<div class="card">${head}
+      <div class="muted">还没配置 AI 接口。到「我的书斋 → AI 接入」填一次即可——Key 只存在这台设备上，不会随备份导出。</div>
+      <div class="btn-row"><button class="btn" onclick="switchTab('more')">去配置</button></div></div>`;
+  }
+  if(aiBusy[kind]) return `<div class="card">${head}<div class="muted">正在读你的数据…</div></div>`;
+  if(aiErrors[kind]) return `<div class="card">${head}
+      <div class="muted" style="color:var(--red)">${esc(aiErrors[kind])}</div>
+      <div class="btn-row"><button class="btn" onclick="${action}">重试</button></div></div>`;
+  if(text) return `<div class="card">${head}
+      <div class="md-body">${mdToHtml(text)}</div>
+      <div class="muted mt8">生成于 ${at? at.toLocaleString('zh-CN',{hour12:false}) : ''} · 只依据本机统计数据，未上传题目与答案</div>
+      <div class="btn-row"><button class="btn" onclick="${action}">重新生成</button>
+      <button class="btn" onclick="aiClear('${kind}')">清除</button></div></div>`;
+  return `<div class="card">${head}
+    <div class="muted mb10">${intro}</div>
+    <div class="muted mb10">只发送统计数据（模块名、正确率、用时、错因、考点名），<b>不发送题目内容和答案</b>。</div>
+    <div class="btn-row"><button class="btn primary" onclick="${action}">${btnText}</button></div></div>`;
+}
+function aiClear(kind){
+  aiClearResult(kind); aiErrors[kind]='';
+  aiRefresh(kind);
+  toast('已清除');
+}
+function aiDiagCardHtml(){
+  return aiCardHtml('diag',' AI 学情诊断',
+    '把上面的模块表现、配速与错因数据交给 AI 读一遍，给出接下来两周的具体行动建议。',
+    '让 AI 读一遍','aiDiagnose()');
+}
+function aiPlanCardHtml(){
+  return aiCardHtml('plan',' AI 排计划',
+    '把学情数据交给 AI，排出未来 7 天每天练什么、练多少、练多久。',
+    '让 AI 排 7 天计划','aiPlan()');
+}
+function renderAiConfig(){
+  const c = window.AI ? window.AI.loadCfg() : {url:'',model:'',key:''};
+  return `<div class="card"><h3><span class="dot"></span>${ico('robot')} AI 接入</h3>
+    <div class="muted mb10">支持任何 OpenAI 兼容接口（DeepSeek、火山方舟、各类中转站）。接口地址要填到 <code>/v1/chat/completions</code> 为止。</div>
+    <div class="field"><label for="aiUrl">接口地址</label><input id="aiUrl" type="text" value="${esc(c.url)}" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
+    <div class="field"><label for="aiModel">模型名</label><input id="aiModel" type="text" value="${esc(c.model)}" placeholder="点下面的「获取模型列表」自动带出，也可手填"></div>
+    <div class="field"><label for="aiModelPick">可用模型</label>
+      <select id="aiModelPick" class="hidden" onchange="pickAiModel(this)"></select>
+      <div class="btn-row"><button class="btn" id="aiModelsBtn" onclick="fetchAiModels()">获取模型列表</button></div>
+    </div>
+    <div class="field"><label for="aiKey">API Key</label><input id="aiKey" type="password" value="${esc(c.key)}" placeholder="sk-..."></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="saveAiCfg()">保存</button>
+      <button class="btn" onclick="testAiCfg()">测试连接</button>
+    </div>
+    <div class="muted mt8">Key 只存在这台设备的浏览器里，<b>不会随「导出备份」导出</b>；学习数据也不会上传给 AI。</div>
+    <div class="field" style="margin-top:14px"><label for="aiImport">配置搬运：把别人给的配置粘贴到这里</label><textarea id="aiImport" rows="2" placeholder="ZSAI1:…（整段粘贴）"></textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="importAiCfg()">导入配置</button>
+      <button class="btn" onclick="copyAiCfg()">复制我的配置</button>
+    </div>
+    <div class="muted mt8">在电脑上配好一次，点「复制我的配置」，把那段文本发给对方粘贴导入——对方就不用手敲地址和 Key 了。</div>
+  </div>`;
+}
+async function copyAiCfg(){
+  if(!window.AI) return;
+  const text=window.AI.exportCfg();
+  try{
+    await navigator.clipboard.writeText(text);
+    toast('配置已复制，发给对方粘贴导入即可','ok');
+  }catch(_){
+    const box=$('#aiImport');
+    if(box){ box.value=text; box.focus(); box.select(); }
+    toast('已填入下面的输入框，请手动复制','ok');
+  }
+}
+function importAiCfg(){
+  if(!window.AI) return;
+  try{
+    const cfg=window.AI.importCfg($('#aiImport')?.value||'');
+    toast('配置已导入：'+(cfg.model||'未命名模型'),'ok');
+    renderMore();
+  }catch(e){
+    toast(e?.message||'导入失败','error');
+  }
+}
+function saveAiCfg(){
+  if(!window.AI){ toast('AI 模块未加载','error'); return null; }
+  const cfg=window.AI.saveCfg({url:$('#aiUrl')?.value, model:$('#aiModel')?.value, key:$('#aiKey')?.value});
+  toast(cfg.url&&cfg.model? 'AI 配置已保存':'已保存，但接口地址或模型名为空', cfg.url&&cfg.model?'ok':'error');
+  return cfg;
+}
+async function fetchAiModels(){
+  if(!window.AI) return;
+  const cfg=saveAiCfg();                       // 先落盘，保证用最新地址与 Key 去拉
+  if(!cfg||!cfg.url){ toast('请先填写接口地址','error'); return; }
+  const btn=$('#aiModelsBtn'), sel=$('#aiModelPick');
+  if(btn){ btn.disabled=true; btn.textContent='获取中…'; }
+  try{
+    const list=await window.AI.listModels();
+    if(!list.length){ toast('接口没有返回任何模型','error'); return; }
+    sel.innerHTML='<option value="">选择模型…</option>'+list.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    sel.classList.remove('hidden');
+    const cur=($('#aiModel')?.value||'').trim();
+    if(list.includes(cur)) sel.value=cur;
+    toast(`获取到 ${list.length} 个模型，选一个即可`,'ok');
+  }catch(e){
+    toast(e?.message||'获取模型列表失败','error');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='获取模型列表'; }
+  }
+}
+function pickAiModel(sel){
+  const v=sel?.value; if(!v) return;
+  const input=$('#aiModel'); if(input) input.value=v;
+  saveAiCfg();
+  toast('已选择模型：'+v,'ok');
+}
+async function testAiCfg(){  if(!window.AI) return;
+  const cfg=saveAiCfg(); if(!cfg||!cfg.url||!cfg.model) return;
+  toast('正在测试连接…');
+  try{
+    const t=await window.AI.chat([{role:'user',content:'只回复两个字：可用'}],{maxTokens:24,timeoutMs:30000});
+    toast('连接正常：'+t.slice(0,20),'ok');
+  }catch(e){ toast(e?.message||'测试失败','error'); }
+}
+
 /* ---------- C2 能力分析页 ---------- */
 function renderAnalysis(){
   const V=$('#view');
   const atts=store.attempts;
-  if(!atts.length){ V.innerHTML=`<div class="card"><h3><span class="dot"></span>📊 能力分析</h3><div class="muted">还没有作答记录——先刷几题，这里会自动生成你的多维能力画像（模块×考点矩阵、难度适配、来源表现、用时分析）。</div></div>`; return; }
+  if(!atts.length){ V.innerHTML=`<div class="card"><h3><span class="dot"></span>${ico('chart')} 能力分析</h3><div class="muted">还没有作答记录——先刷几题，这里会自动生成你的多维能力画像（模块×考点矩阵、难度适配、来源表现、用时分析）。</div></div>`; return; }
   const total=atts.length, correct=atts.filter(a=>a.ok).length, acc=Math.round(correct/total*100);
   // 模块维度
   const byMod={};
@@ -266,7 +705,7 @@ function renderAnalysis(){
   MODS.forEach(m=>{ weakPoints(m).slice(0,3).forEach(w=>topWeak.push({...w, mod:m})); });
   topWeak.sort((a,b)=>a.acc-b.acc);
   V.innerHTML=`
-  <div class="card"><h3><span class="dot"></span>📊 能力分析 · 多维画像</h3>
+  <div class="card"><h3><span class="dot"></span> 能力分析 · 多维画像</h3>
     <div class="muted mb10">基于最近 ${total} 次作答的实时画像（覆盖 ${Object.keys(byMod).length} 个模块）</div>
     <div class="hero-stats">
       <div class="hs"><b>${acc}%</b><span>总正确率</span></div>
@@ -274,34 +713,127 @@ function renderAnalysis(){
       <div class="hs"><b>${avg(durOk)}s</b><span>答对均时</span></div>
       <div class="hs"><b>${avg(durBad)}s</b><span>答错均时</span></div>
     </div>
-    ${weakestMod? `<div class="muted mt8">⚠️ 当前最薄弱模块：<b style="color:var(--gold)">${MOD_ICO[weakestMod.m]} ${weakestMod.m}</b>（${weakestMod.acc}%）——建议优先专项突破</div>`:''}
+    ${weakestMod? `<div class="muted mt8">${ico('alert')} 当前最薄弱模块：<b style="color:var(--gold)">${MOD_ICO[weakestMod.m]} ${weakestMod.m}</b>（${weakestMod.acc}%）——建议优先专项突破</div>`:''}
   </div>
-  <div class="card"><h3><span class="dot"></span>🧩 模块掌握度</h3>
+  <div class="card"><h3><span class="dot"></span> 模块掌握度</h3>
     ${modAcc.map(({m,n,acc})=>`<div class="r-mod"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${MOD_ICO[m]} ${m} <span class="muted" style="font-weight:400">(${n}题)</span></span><span style="color:${acc>=75?'var(--green)':acc>=60?'var(--gold)':'var(--red)'};font-weight:700">${acc}%</span></div>
       <div class="rm-bar"><div class="rm-fill" style="width:${acc}%;background:${MOD_COLOR[m]}"></div></div></div>`).join('')}
   </div>
-  <div class="card"><h3><span class="dot"></span>🎯 难度适配（按全站正确率分档）</h3>
+  ${aiDiagCardHtml()}
+  ${paceCardHtml()}
+  ${whyCardHtml()}
+  <div class="card"><h3><span class="dot"></span> 难度适配（按全站正确率分档）</h3>
     <div class="muted mb10">简单/中等/较难/困难四档的正确率——如果简单档正确率低，说明基础不牢；较难档低是正常现象，困难档能到 50%+ 已属优秀</div>
     ${BANDS.map(b=>{ const s=byBand[b]; if(!s.a) return ''; const p=Math.round(s.c/s.a*100);
       return `<div class="r-mod"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${b} <span class="muted" style="font-weight:400">(${s.a}题)</span></span><span style="color:${p>=75?'var(--green)':p>=60?'var(--gold)':'var(--red)'};font-weight:700">${p}%</span></div>
       <div class="rm-bar"><div class="rm-fill" style="width:${p}%;background:${p>=75?'var(--green)':p>=60?'var(--gold)':'var(--red)'}"></div></div></div>`; }).join('')}
   </div>
-  <div class="card"><h3><span class="dot"></span>📚 来源表现（真题 vs 模考）</h3>
+  <div class="card"><h3><span class="dot"></span> 来源表现（按考试类型）</h3>
     ${Object.entries(bySrc).sort((a,b)=>b[1].a-a[1].a).slice(0,6).map(([k,s])=>{ const p=Math.round(s.c/s.a*100);
       return `<div class="r-mod"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(k)} <span class="muted" style="font-weight:400">(${s.a}题)</span></span><span style="font-weight:700">${p}%</span></div>
       <div class="rm-bar"><div class="rm-fill" style="width:${p}%"></div></div></div>`; }).join('')}
   </div>
-  <div class="card"><h3><span class="dot"></span>📉 薄弱考点清单（按正确率升序）</h3>
+  <div class="card"><h3><span class="dot"></span> 薄弱考点清单（按正确率升序）</h3>
     <div class="muted mb10">作答 ≥2 次且正确率 < 70% 的考点——智能组卷会优先补强这些考点</div>
     ${topWeak.slice(0,10).map((w,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line)">
       <span><b>${i+1}.</b> ${MOD_ICO[w.mod]} ${esc(w.point)} <span class="muted" style="font-size:12px">(${w.n}次)</span></span>
       <span style="color:${w.acc>=60?'var(--gold)':'var(--red)'};font-weight:700">${w.acc}%</span></div>`).join('')||'<div class="muted">暂无（继续刷题积累数据）</div>'}
-    <div class="btn-row"><button class="btn primary" onclick="smartQuiz()">🎯 针对薄弱点智能组卷</button></div>
+    <div class="btn-row"><button class="btn primary" onclick="smartQuiz()"> 针对薄弱点智能组卷</button></div>
   </div>
-  <div class="card"><h3><span class="dot"></span>📈 近14天趋势</h3>
+  <div class="card"><h3><span class="dot"></span> 近14天趋势</h3>
     <div class="rate-bar">${trend.map(d=>{ const p=d.answered? Math.round(d.correct/d.answered*100):0;
       return `<div class="rb-col"><div class="rb-bar" style="height:${Math.max(4,p*0.8)}px;background:${p>=75?'var(--green)':p>=50?'var(--gold)':'var(--red)'}"></div><div class="rb-day">${d.date.slice(5).replace('-','/')}</div><div class="rb-num">${p}%</div></div>`;}).join('')}</div>
   </div>`;
+}
+
+/* ---------- C3 学习计划 ---------- */
+/* 只持久化目标本身（考试名 / 日期 / 每日题量），每日任务与完成度全部由既有数据推导。
+   刻意不做「每日任务落库」——隔几天不打开也不会留下一堆过期任务。 */
+function planTarget(){ return Math.min(200,Math.max(10,Math.round(store.plan?.daily)||60)); }
+function planDone(){ return (store.checkins[today()]||{}).answered||0; }
+function planDaysLeft(){
+  const left=daySerial(store.plan?.date)-daySerial(new Date());
+  return Number.isFinite(left)? left : null;
+}
+function planHitDays(days=7){
+  let hit=0;
+  for(let i=0;i<days;i++) if(((store.checkins[fmtDate(-i)]||{}).answered||0)>=planTarget()) hit++;
+  return hit;
+}
+function weakMods(limit=2){
+  return MODS.map(m=>{ const b=store.stats.byMod[m]||{answered:0,correct:0};
+    return {m, acc:b.answered? b.correct/b.answered : 0, n:b.answered}; })
+    .filter(x=>x.n>=5).sort((a,b)=>a.acc-b.acc).slice(0,limit).map(x=>x.m);
+}
+function planSummaryText(){
+  const left=planDaysLeft();
+  if(left===null) return '设定目标考试与每日题量，让每天都有明确的落点。';
+  if(left<0) return '考试日期已过，请更新目标日期。';
+  return `距 ${esc(store.plan.exam||'目标考试')} ${left} 天，今日 ${planDone()}/${planTarget()} 题。`;
+}
+function savePlan(){
+  const exam=($('#planExam')?.value||'').trim().slice(0,30);
+  const date=($('#planDate')?.value||'').trim();
+  const daily=Math.round(Number($('#planDaily')?.value)||0);
+  store.plan={
+    exam,
+    date:/^\d{4}-\d{2}-\d{2}$/.test(date)? date : '',
+    daily:Math.min(200,Math.max(10,daily||60))
+  };
+  save();
+  toast('学习计划已保存','ok');
+  renderPlan();
+}
+function startPlanQuiz(){
+  if(requireFullBank(()=>startPlanQuiz())) return;
+  const left=Math.max(1, planTarget()-planDone());
+  // 先清到期错题，不足的用薄弱模块补齐，两者都不够才退回全库随机。
+  let list=reviewDue().slice(0,left);
+  if(list.length<left){
+    const weak=weakMods(2);
+    let pool=weak.length? allQuestions().filter(q=>weak.includes(q.mod)) : [];
+    if(pool.length<left) pool=allQuestions();
+    const have=new Set(list.map(q=>q.id));
+    list=list.concat(shuffle(pool.filter(q=>!have.has(q.id))).slice(0,left-list.length));
+  }
+  if(!list.length){ toast('题库为空或暂无可用题目'); return; }
+  startQuiz(shuffle(list), `今日计划 · ${list.length} 题`);
+}
+function renderPlan(){
+  const left=planDaysLeft(), p=store.plan;
+  const done=planDone(), target=planTarget(), due=reviewDue().length;
+  const pct=Math.min(100, Math.round(done/target*100));
+  const weak=weakMods(2);
+  const countdown = left===null? '尚未设定考试日期，设好后这里会显示倒计时。'
+    : left>0? `距 <b>${esc(p.exam||'目标考试')}</b> 还有 <b>${left}</b> 天`
+    : left===0? '今天就是考试日，稳住心态，把会做的先拿到。'
+    : `考试日期已过 ${-left} 天，请更新目标日期。`;
+  $('#view').innerHTML=`
+  <header class="page-heading"><span>修业成长</span><h1>学习计划</h1><p>定下目标与每日题量，剩下的交给每天的执行。</p></header>
+  <div class="card">
+    <h3><span class="dot"></span>目标与节奏</h3>
+    <div class="muted mb10">${countdown}</div>
+    <div class="field"><label for="planExam">目标考试</label><input id="planExam" type="text" maxlength="30" value="${esc(p.exam)}" placeholder="如：2026 国考"></div>
+    <div class="field"><label for="planDate">考试日期</label><input id="planDate" type="date" value="${esc(p.date)}"></div>
+    <div class="field"><label for="planDaily">每日目标题量（10-200）</label><input id="planDaily" type="number" min="10" max="200" step="5" value="${target}"></div>
+    <div class="btn-row"><button class="btn primary" onclick="savePlan()">保存计划</button></div>
+  </div>
+  <div class="card">
+    <h3><span class="dot"></span>今日进度 · ${today()}</h3>
+    <div class="r-mod"><div style="display:flex;justify-content:space-between;font-size:13px"><span>已完成 ${done} / ${target} 题</span><span>${pct}%</span></div>
+      <div class="rm-bar"><div class="rm-fill" style="width:${pct}%;background:${pct>=100?'var(--green)':'var(--gold)'}"></div></div></div>
+    <div class="muted mt8">${due? `今日有 <b>${due}</b> 题错题到期，建议先清错题再补新题。`:'今日没有到期的错题。'}${weak.length? `近期薄弱模块：<b>${weak.map(m=>MOD_ICO[m]+m).join('、')}</b>，补齐时会优先出这些模块。`:''}</div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="startPlanQuiz()">${done>=target? '继续加练' : `开始今日计划（还剩 ${Math.max(0,target-done)} 题）`}</button>
+      ${due? `<button class="btn" onclick="quickStart('错题重练')">只清错题（${due} 题）</button>`:''}
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="dot"></span>本周达标</h3>
+    <div class="muted mb10">最近 7 天有 <b>${planHitDays(7)}</b> 天完成了 ${target} 题的目标。作答即打卡，达标天数与连续学习天数一起累积。</div>
+    <div class="cal-wrap week-wrap"><div class="weekdays">${'一二三四五六日'.split('').map(w=>`<span>${w}</span>`).join('')}</div><div class="week-grid">${weekStrip(target)}</div></div>
+  </div>
+  ${aiPlanCardHtml()}`;
 }
 
 /* ---------- 数据操作 ---------- */
@@ -360,6 +892,7 @@ function reviewDue(){
 const VIEWS=['dashboard','practice','daily','exam','wrongbook','shenlun','more','growth','ai','profile'];
 const ROUTE_SECTION={daily:'practice',exam:'practice',wrongbook:'practice',more:'profile'};
 let activeRoute='dashboard';
+let growthTool='';        // 修业成长下的子页：'' | 'plan' | 'ability'，供 AI 回绘定位
 let navigationEpoch=0;
 function switchTab(v){
   const epoch=++navigationEpoch;
@@ -367,6 +900,7 @@ function switchTab(v){
   const needsBank=['practice','daily','exam','wrongbook'].includes(v);
   if(needsBank && requireFullBank(()=>{ if(epoch===navigationEpoch) switchTab(v); })) return;
   activeRoute=VIEWS.includes(v)?v:'dashboard';
+  growthTool='';
   const section=ROUTE_SECTION[activeRoute]||activeRoute;
   $$('.tab').forEach(el=>{ const active=el.dataset.view===section; el.classList.toggle('active',active); active?el.setAttribute('aria-current','page'):el.removeAttribute('aria-current'); });
   renderView(activeRoute);
@@ -382,24 +916,27 @@ function renderGrowth(){
   const due=reviewDue(), total=store.attempts.length, correct=store.attempts.filter(a=>a.ok).length;
   $('#view').innerHTML=`<header class="page-heading"><span>修业成长</span><h1>看见趋势，也看见每一步</h1><p>致学力来自练习、稳定性、复习完成度与专注积累，不等同于考试分数。</p></header>
   <section class="academy-grid">
-    <article class="card feature-card"><span class="feature-mark">析</span><h3>能力图谱</h3><p>基于 ${total} 次作答，梳理模块、考点、难度、来源和用时表现。</p><button class="btn primary" onclick="openGrowthTool('ability')">能力图谱</button></article>
-    <article class="card feature-card"><span class="feature-mark">温</span><h3>错题温习</h3><p>按 1 / 2 / 4 / 7 / 15 天节奏复习，今日到期 ${due.length} 题。</p><button class="btn" onclick="openGrowthTool('wrong')">错题温习</button></article>
-    <article class="card feature-card"><span class="feature-mark">静</span><h3>专注修习</h3><p>用番茄钟保持节奏，累计专注 ${store.pomo.minutes} 分钟。</p><button class="btn" onclick="openGrowthTool('focus')">专注修习</button></article>
+    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/stopwatch.png" alt=""></span><h3>学习计划</h3><p>${planSummaryText()}</p><button class="btn primary" onclick="openGrowthTool('plan')">查看计划</button></article>
+    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/analyze.png" alt=""></span><h3>能力图谱</h3><p>基于 ${total} 次作答，梳理模块、考点、难度、来源和用时表现。</p><button class="btn primary" onclick="openGrowthTool('ability')">能力图谱</button></article>
+    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/review.png" alt=""></span><h3>错题温习</h3><p>按 1 / 2 / 4 / 7 / 15 天节奏复习，今日到期 ${due.length} 题。</p><button class="btn" onclick="openGrowthTool('wrong')">错题温习</button></article>
+    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/focus.png" alt=""></span><h3>专注修习</h3><p>用番茄钟保持节奏，累计专注 ${store.pomo.minutes} 分钟。</p><button class="btn" onclick="openGrowthTool('focus')">专注修习</button></article>
   </section>
   <section class="card growth-summary"><h3><span class="dot"></span>当前修业小结</h3><div class="hero-stats"><div class="hs"><b>${total}</b><span>作答记录</span></div><div class="hs"><b>${total?Math.round(correct/total*100):0}%</b><span>近期正确率</span></div><div class="hs"><b>${streakDays()}</b><span>连续学习</span></div></div></section>`;
 }
 function openGrowthTool(tool){
+  growthTool=tool;
   if(tool==='ability') renderAnalysis();
+  else if(tool==='plan') renderPlan();
   else if(tool==='wrong') switchTab('wrongbook');
   else renderMore();
 }
 function renderAi(){
-  $('#view').innerHTML=`<header class="page-heading"><span>问泽</span><h1>有依据地解释，有边界地建议</h1><p>问学于泽，明理而行。问泽是辅助层，不替代题库原始解析。</p></header>${renderAskComposer('ai')}<section class="academy-grid"><article class="card feature-card"><span class="feature-mark">解</span><h3>题目精讲</h3><p>围绕当前题目、你的答案和题库原始解析继续追问。</p></article><article class="card feature-card"><span class="feature-mark">策</span><h3>学习规划</h3><p>未来可根据目标和可用时间生成可修改的学习建议。</p></article><article class="card feature-card"><span class="feature-mark">录</span><h3>对话记录</h3><p>服务接入后再提供可查看、可删除的本地会话记录。</p></article></section>`;
+  $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>有依据地解释，有边界地建议</h1><p>问学于泽，明理而行。它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<section class="academy-grid"><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/explain.png" alt=""></span><h3>题目精讲</h3><p>做题答完后、或在逐题回顾里，题目下方会出现上岸小助手框——那里会带上题干、选项与题库原始解析。这一页只适合问备考方法。</p></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/plan.png" alt=""></span><h3>学习规划</h3><p>未来可根据目标和可用时间生成可修改的学习建议。</p></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/note.png" alt=""></span><h3>对话记录</h3><p>服务接入后再提供可查看、可删除的本地会话记录。</p></article></section>`;
 }
 const UI_SCENE_OPTIONS=[['mountains','远山'],['lake','烟水'],['bamboo','竹影'],['cloud','云水'],['plum','疏梅'],['bridge','柳桥'],['moon','月隐'],['lotus','清荷'],['paper','素宣'],['none','无背景']];
 function renderProfile(){
   $('#view').innerHTML=`<header class="page-heading"><span>我的书斋</span><h1>学习数据，由你掌握</h1><p>数据、题库、显示偏好和隐私说明集中在这里。</p></header>
-  <section class="academy-grid profile-actions"><article class="card feature-card"><span class="feature-mark">存</span><h3>数据管理</h3><p>导出备份、导入恢复与清空学习数据。</p><button class="btn" onclick="renderMore()">数据管理</button></article><article class="card feature-card"><span class="feature-mark">库</span><h3>题库与缓存</h3><p>${bankCacheStatusText()}。</p><button class="btn" onclick="renderMore()">题库与缓存</button></article><article class="card feature-card"><span class="feature-mark">隐</span><h3>隐私与关于</h3><p>学习记录留在当前浏览器；服务未接入时，文字与转写结果不会发送给问泽。语音可能由浏览器的语音识别服务处理，并需你授权麦克风权限。</p><button class="btn" onclick="renderMore()">查看详情</button></article></section>
+  <section class="academy-grid profile-actions"><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/archive.png" alt=""></span><h3>数据管理</h3><p>导出备份、导入恢复与清空学习数据。</p><button class="btn" onclick="renderMore()">数据管理</button></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/library.png" alt=""></span><h3>题库与缓存</h3><p>${bankCacheStatusText()}。</p><button class="btn" onclick="renderMore()">题库与缓存</button></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/privacy.png" alt=""></span><h3>隐私与关于</h3><p>学习记录留在当前浏览器。接入 AI 后，上岸小助手的问题会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；在首页／上岸小助手页提问、以及点「AI 学情诊断／排计划」时，发送的是学情统计（模块正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</p><button class="btn" onclick="renderMore()">查看详情</button></article></section>
   <section class="card display-settings"><div class="card-heading"><h3><span class="dot"></span>显示与无障碍</h3><span class="tag">即时生效</span></div><p class="muted mb10">选择一幅极淡古风背景；长题干和解析始终使用高不透明纸面保证可读。</p>
     <div class="scene-grid">${UI_SCENE_OPTIONS.map(([id,name])=>`<button type="button" class="scene-choice ${uiPrefs.scene===id?'active':''}" aria-label="${name}" onclick="chooseUiScene('${id}',this)"><span class="scene-thumb scene-${id}"></span><span>${name}</span></button>`).join('')}</div>
     <div class="list-row"><div><div class="l-title">点击涟漪</div><div class="l-sub">点击按钮时出现一次淡墨水纹；减少动态效果时自动停用。</div></div><button type="button" class="switch ${uiPrefs.ripple?'on':''}" aria-label="点击涟漪" aria-pressed="${uiPrefs.ripple?'true':'false'}" onclick="toggleUiRipple(this)"></button></div>
@@ -409,25 +946,122 @@ function renderProfile(){
 function chooseUiScene(scene,button){ if(!setUiScene(scene)) return; $$('.scene-choice').forEach(x=>x.classList.toggle('active',x===button)); }
 function toggleUiRipple(button){ const enabled=setUiRipple(button.getAttribute('aria-pressed')!=='true'); button.setAttribute('aria-pressed',String(enabled)); button.classList.toggle('on',enabled); }
 
-const ASK_PROMPTS={home:['今天先练什么','为什么不能选 B','帮我安排 30 分钟复习'],ai:['分析我的薄弱项','制定今日学习计划','如何提高做题速度'],question:['为什么不能选 B','换个角度讲','总结这个考点']};
-function renderAskComposer(context='home'){
-  const prompts=ASK_PROMPTS[context]||ASK_PROMPTS.home;
+const ASK_PROMPTS={
+  home:['今天先练什么','帮我安排 30 分钟复习','我哪个模块最该补','数量关系总做不完怎么办'],
+  ai:['分析我的薄弱项','制定今日学习计划','如何提高做题速度','我的错因主要是什么']
+};
+/* 逐题讲解的推荐问题要按「她实际选了什么」生成，不能写死。
+   以前写死成「为什么不能选 B」，她选 A 的时候这句话就是错的。 */
+function askPromptsFor(context, q, chosen){
+  if(context!=='question') return ASK_PROMPTS[context]||ASK_PROMPTS.home;
+  const list=[];
+  if(q && chosen!==undefined){
+    const mine = q.multi? qAnsText(q,chosen) : 'ABCD'[chosen];
+    list.push(isCorrect(q,chosen)? `我选的 ${mine} 是怎么对的` : `为什么不能选 ${mine}`);
+  } else if(q){
+    list.push('这道题考的是什么');
+  }
+  list.push('换个角度讲','总结这个考点');
+  return list;
+}
+const ASK_SYSTEM_QUESTION=`你是一位公考行测辅导老师，正在给一位备考省考的考生讲一道题。
+【最重要的一条】下面给出的「题库原始解析」是这道题的唯一权威答案。你只能基于它解释，
+不许自己重新判断答案、不许推翻它、不许编造解析里没有的内容。
+如果考生的追问超出了解析范围，就直接说「解析里没有提到这一点」，不要猜。
+讲题要求：
+1. 先正面回应他具体问的那个点，不要泛泛复述解析。
+2. 像老师当面讲，说人话，不要书面腔和套话。
+3. 如果他答错了，指出他可能是看漏了哪个词、或掉进了哪个干扰项。
+4. 控制在 300 字以内。`;
+
+const ASK_SYSTEM_GENERAL=`你是一位公考（省考）备考助手，正在回答考生的问题。
+下面通常会附带这位考生的学情数据；**有数据就结合数据回答**，不要给空泛的通用建议。
+规则：
+1. 只回答备考方法、时间安排、做题策略、心态这类问题。
+2. 涉及具体题目的答案时，明确告诉他「把题目发到逐题讲解里问，那里有题库原始解析」，不要凭印象给答案。
+3. 数据里没提到的就不要编。
+4. 用中文，直接、口语化，控制在 300 字以内。`;
+
+/* 逐题讲解的题目上下文直接从答题状态取，不额外存一份。
+   注意：上岸小助手框在两处出现——答题页答完题之后、以及逐题回顾页，
+   所以这里**不能**按 Q.mode 过滤（答题时的 mode 是 multi/single，不是 review）。 */
+function askQuestionCtx(){
+  if(Array.isArray(Q.list) && Q.list[Q.idx])
+    return {q:Q.list[Q.idx], chosen:Q.answers[Q.list[Q.idx].id]};
+  return null;
+}
+function askUserPrompt(q, chosen, question){
+  const opts=(q.options||[]).map((o,i)=>`${'ABCD'[i]}. ${safeText(o)}`).join('\n');
+  const mine = chosen===undefined? '未作答' : (q.multi? qAnsText(q,chosen) : 'ABCD'[chosen]);
+  return [
+    `【题目】模块：${q.mod} · 题型：${q.type||'—'}`,
+    q.mat? `材料（节选）：\n${safeText(q.mat).slice(0,2000)}` : '',
+    `题干：${safeText(q.stem).slice(0,1500)}`,
+    opts,
+    `正确答案：${q.multi? String(q.answer) : 'ABCD'[q.answer]}`,
+    `我的答案：${mine}${isCorrect(q,chosen)? '（回答正确）':'（回答错误）'}`,
+    '',
+    '【题库原始解析】',
+    cleanAnalysisText(q.analysis) || '（本题没有解析）',
+    '',
+    '【我的问题】',
+    question
+  ].filter(Boolean).join('\n');
+}
+/* 首页/上岸小助手页的提问也带上学情快照——否则「今天先练什么」只能得到泛泛的答案。
+   数据少于 20 题时不带，免得 AI 拿零星数据瞎判断。 */
+function askStudyPrompt(question){
+  const s=studySnapshot();
+  if(s.totalAnswered<20) return question;
+  return aiDiagPrompt(s) + '\n\n【我的问题】\n' + question;
+}
+function renderAskComposer(context='home', q, chosen){
+  const prompts=askPromptsFor(context, q, chosen);
+  const on=!!window.AI?.ready();
+  const hint = context==='question'
+    ? (on? '问题会连同这道题的题干、选项与题库原始解析一起发给已配置的 AI。'
+         : '尚未接入服务；到「我的书斋 → AI 接入」填一次即可。')
+    : (on? '问题会连同你的学情统计（模块正确率、用时、错因）一起发给已配置的 AI，不含题目与答案。'
+         : '尚未接入服务；到「我的书斋 → AI 接入」填一次即可。');
   return `<section class="card ask-composer" data-context="${context}" aria-labelledby="ask-${context}-title">
-    <div class="ask-head"><div><h3 id="ask-${context}-title">✦ 问泽</h3><p>先问清，再练透。可输入文字，也可口述问题。</p></div><span class="tag">尚未接入服务</span></div>
+    <div class="ask-head"><div><h3 id="ask-${context}-title"> 上岸小助手</h3><p>先问清，再练透。可输入文字，也可口述问题。</p></div><span class="tag">${on?'已接入 AI':'尚未接入服务'}</span></div>
     <div class="ask-chips">${prompts.map(p=>`<button type="button" class="ask-chip" onclick="fillAskPrompt('${context}','${inlineArg(p)}')">${esc(p)}</button>`).join('')}</div>
     <div class="ask-row">
-      <button type="button" class="ask-mic" data-mic="${context}" aria-label="语音输入" aria-pressed="false" onclick="askMic('${context}')">◉</button>
-      <textarea id="ask-${context}" rows="2" aria-label="向问泽提问" placeholder="把不明白的地方说给问泽听……"></textarea>
+      <button type="button" class="ask-mic" data-mic="${context}" aria-label="语音输入" aria-pressed="false" onclick="askMic('${context}')"></button>
+      <textarea id="ask-${context}" rows="2" aria-label="向上岸小助手提问" placeholder="把不明白的地方说给它听……"></textarea>
       <button type="button" class="ask-send" data-send="${context}" onclick="sendAsk('${context}')">发送</button>
     </div>
-    <p class="ask-status" data-context="${context}" role="status">当前不会发送给问泽；语音识别由浏览器提供，使用前会请求权限。</p>
+    <p class="ask-status" data-context="${context}" role="status">${hint}语音识别由浏览器提供，使用前会请求权限。</p>
+    <div class="ask-answer" data-answer="${context}"></div>
   </section>`;
 }
 function fillAskPrompt(context,encoded){ const input=$(`#ask-${context}`); if(input){ input.value=decodeURIComponent(encoded); input.focus(); } }
-function sendAsk(context){
+async function sendAsk(context){
   const input=$(`#ask-${context}`), status=$(`.ask-status[data-context="${context}"]`);
-  if(!input?.value.trim()){ if(status) status.textContent='请先输入想问的问题。'; input?.focus(); return; }
-  if(status) status.textContent='问泽服务尚未接入，问题不会发送；你的草稿已保留。';
+  const box=$(`.ask-answer[data-answer="${context}"]`), btn=$(`[data-send="${context}"]`);
+  const question=(input?.value||'').trim();
+  if(!question){ if(status) status.textContent='请先输入想问的问题。'; input?.focus(); return; }
+  if(!window.AI?.ready()){
+    if(status) status.textContent='还没配置 AI 接口——到「我的书斋 → AI 接入」填一次即可；你的草稿已保留。';
+    return;
+  }
+  const ctx = context==='question'? askQuestionCtx() : null;
+  if(context==='question' && !ctx){ if(status) status.textContent='没有取到当前题目，请退出重进这一题再问。'; return; }
+  if(status) status.textContent='上岸小助手正在想…';
+  if(box) box.innerHTML='';
+  if(btn) btn.disabled=true;
+  try{
+    const text=await window.AI.chat(
+      [{role:'system',content: ctx? ASK_SYSTEM_QUESTION : ASK_SYSTEM_GENERAL},
+       {role:'user',content: ctx? askUserPrompt(ctx.q, ctx.chosen, question) : askStudyPrompt(question)}],
+      {maxTokens:900, temperature:0.3});
+    if(box) box.innerHTML=`<div class="ask-answer-body md-body">${mdToHtml(text)}</div><div class="ask-answer-note">AI 生成 · 仅供参考${ctx? ' · 以题库原始解析为准':''}</div>`;
+    if(status) status.textContent='回答已生成。可以继续追问。';
+  }catch(e){
+    if(status) status.textContent=e?.message||'上岸小助手暂时不可用，请稍后重试。';
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 }
 const askRecognizers={};
 function stopAskRecognizers(){
@@ -457,7 +1091,7 @@ window.addEventListener('pagehide',stopAskRecognizers);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) stopAskRecognizers(); });
 function renderQuestionAskBox(q,chosen){
   const answer=chosen===undefined?'未作答':qAnsText(q,chosen);
-  return `<section class="question-ask" aria-label="问泽逐题讲解"><p class="question-context">当前题目 ✓ · 我的答案 ${esc(answer)} · 学习画像未使用</p>${renderAskComposer('question')}</section>`;
+  return `<section class="question-ask" aria-label="上岸小助手逐题讲解"><p class="question-context">当前题目 ${ico('check')} · 我的答案 ${esc(answer)} · 学习画像未使用</p>${renderAskComposer('question', q, chosen)}</section>`;
 }
 
 /* ============ 仪表盘 ============ */
@@ -479,13 +1113,13 @@ function renderDash(){
   </div>
   ${renderAskComposer('home')}
   <div class="grid-btns mb10">
-    <button class="gb" onclick="quickStart('每日一练')"><span class="gi">📅</span><span class="gt">每日一练</span></button>
-    <button class="gb" onclick="quickStart('随机刷题')"><span class="gi">🎲</span><span class="gt">随机刷题</span></button>
-    <button class="gb" onclick="quickStart('错题重练')"><span class="gi">🔁</span><span class="gt">错题重练</span></button>
-    <button class="gb" onclick="quickStart('模拟考试')"><span class="gi">⏱️</span><span class="gt">模拟考试</span></button>
-    <button class="gb" onclick="switchTab('exam')"><span class="gi">🧩</span><span class="gt">智能组卷</span></button>
-    <button class="gb" onclick="renderFillback()"><span class="gi">📥</span><span class="gt">答案回填</span></button>
-    <button class="gb" onclick="renderAnalysis()"><span class="gi">📊</span><span class="gt">能力分析</span></button>
+    <button class="gb" onclick="quickStart('每日一练')"><span class="gi"><img src="assets/illus/tile/daily.png" alt=""></span><span class="gt">每日一练</span></button>
+    <button class="gb" onclick="quickStart('随机刷题')"><span class="gi"><img src="assets/illus/tile/random.png" alt=""></span><span class="gt">随机刷题</span></button>
+    <button class="gb" onclick="quickStart('错题重练')"><span class="gi"><img src="assets/illus/tile/wrong.png" alt=""></span><span class="gt">错题重练</span></button>
+    <button class="gb" onclick="quickStart('模拟考试')"><span class="gi"></span><span class="gt">模拟考试</span></button>
+    <button class="gb" onclick="switchTab('exam')"><span class="gi"><img src="assets/illus/tile/paper.png" alt=""></span><span class="gt">智能组卷</span></button>
+    <button class="gb" onclick="renderFillback()"><span class="gi"></span><span class="gt">答案回填</span></button>
+    <button class="gb" onclick="renderAnalysis()"><span class="gi"></span><span class="gt">能力分析</span></button>
   </div>
   <div class="card">
     <h3><span class="dot"></span>模块掌握度</h3>
@@ -502,10 +1136,20 @@ function renderDash(){
     <div class="muted mb10">按遗忘曲线（1/2/4/7/15天），今日有 <b style="color:var(--gold)">${due.length}</b> 道错题需要复习</div>
     <button class="btn primary" onclick="quickStart('错题重练')">开始复习 →</button>
   </div>`:''}
-  <div class="card">
-    <h3><span class="dot"></span>备考小贴士</h3>
-    <div class="muted">行测 120 分钟 135 题，平均每题不到 1 分钟——<b>时间优先留给有把握的题</b>。建议按「言语→判断→资料→常识→数量」顺序作答，数量关系最后做，不会就蒙，不恋战。</div>
-  </div>`;
+  ${store.stats.answered===0? `<div class="card"><h3><span class="dot"></span>第一次来？三步开始</h3>
+    <div class="muted mb10">1⃣ 到「修业成长 → 学习计划」填上考试日期和每天想练多少题<br>
+    2⃣ 点上面的「每日一练」，先把今天的量做掉<br>
+    3⃣ 做错的题会自动进错题本；在逐题回顾里标一下错因，App 才看得出你失分在哪</div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="openGrowthTool('plan')">去设学习计划</button>
+      <button class="btn" onclick="switchTab('shenlun')">看看申论</button>
+    </div>
+  </div>`:''}
+  ${backupStatus().warn? `<div class="card" style="border-left:3px solid var(--red)">
+    <h3><span class="dot"></span>该备份了</h3>
+    <div class="muted mb10">${backupStatus().text}</div>
+    <div class="btn-row"><button class="btn primary" onclick="exportData()">立即导出备份</button></div>
+  </div>`:''}`;
 }
 function last14Bars(){
   const days=store.stats.daily.slice(-14);
@@ -531,8 +1175,8 @@ function quickStart(which){
 /* ============ 刷题 ============ */
 function renderPractice(){
   $('#view').innerHTML=`
-  <header class="page-heading"><span>行测研习</span><h1>分门研习，及时温故</h1><p>专项练习、每日研习、模拟策试与错题温习统一归入行测。</p></header>
-  <div class="academy-grid practice-tools"><article class="card tool-card"><span>日课</span><h3>每日研习</h3><button class="btn" onclick="switchTab('daily')">每日研习</button></article><article class="card tool-card"><span>策试</span><h3>模拟策试</h3><button class="btn" onclick="switchTab('exam')">模拟策试</button></article><article class="card tool-card"><span>温故</span><h3>错题温习</h3><button class="btn" onclick="switchTab('wrongbook')">错题温习</button></article></div>
+  <header class="page-heading"><span>行测研习</span><h1>分门研习，及时温故</h1><p>专项练习、每日研习、限时自测与错题温习统一归入行测。</p></header>
+  <div class="academy-grid practice-tools"><article class="card tool-card"><span><img class="mark-img" src="assets/illus/mark/daily.png" alt=""></span><h3>每日研习</h3><button class="btn" onclick="switchTab('daily')">每日研习</button></article><article class="card tool-card"><span><img class="mark-img" src="assets/illus/mark/mockexam.png" alt=""></span><h3>模拟策试</h3><button class="btn" onclick="switchTab('exam')">模拟策试</button></article><article class="card tool-card"><span><img class="mark-img" src="assets/illus/mark/wrongbook.png" alt=""></span><h3>错题温习</h3><button class="btn" onclick="switchTab('wrongbook')">错题温习</button></article></div>
   <div class="card"><h3><span class="dot"></span>选择模块开始刷题</h3><div class="muted mb10">每模块 ${MODS.map(m=>`${m} ${QUESTION_BANK[m].length}题`).join(' · ')}</div>
     <div class="mod-list">
       ${MODS.map(m=>{const b=store.stats.byMod[m]||{answered:0,correct:0};const p=b.answered?Math.round(b.correct/b.answered*100):0;
@@ -543,19 +1187,19 @@ function renderPractice(){
   </div>
   <div class="card"><h3><span class="dot"></span>更多练习方式</h3>
     <div class="btn-row">
-      <button class="btn" onclick="startQuiz(shuffle(allQuestions()),'全模块随机 15 题')">🎲 全模块随机</button>
-      <button class="btn gold" onclick="startQuiz(shuffle(allQuestions().filter(q=>q.mod==='数量关系'||q.mod==='资料分析')).slice(0,8),'数量+资料强化')">💪 数量+资料</button>
-      <button class="btn" onclick="smartQuiz()">🧠 智能组卷（薄弱点强化）</button>
+      <button class="btn" onclick="startQuiz(shuffle(allQuestions()),'全模块随机 15 题')"> 全模块随机</button>
+      <button class="btn gold" onclick="startQuiz(shuffle(allQuestions().filter(q=>q.mod==='数量关系'||q.mod==='资料分析')).slice(0,8),'数量+资料强化')"> 数量+资料</button>
+      <button class="btn" onclick="smartQuiz()"> 智能组卷（薄弱点强化）</button>
     </div>
   </div>
-  <div class="card"><h3><span class="dot"></span>🔍 题库检索</h3>
+  <div class="card"><h3><span class="dot"></span> 题库检索</h3>
     <div class="muted mb10">按关键词/考点/来源/正确率筛选全库 ${allQuestions().length.toLocaleString()} 题，支持练习与导出</div>
     <div class="search-grid">
       <input id="searchKw" aria-label="题干、选项或解析关键词" placeholder="关键词（题干/选项/解析）" oninput="searchDebounced()">
       <input id="searchTag" aria-label="标签或来源关键词" placeholder="标签/来源关键字（如 北京 / 2023 / 第三季 / 行政执法）" oninput="searchDebounced()">
       <input id="searchPoint" aria-label="考点关键词" placeholder="考点关键词（如 逻辑推理/比重）" oninput="searchDebounced()">
       <select id="searchSrc" aria-label="题目来源" onchange="doSearch()">
-        <option value="">全部来源</option><option>国考</option><option>省考</option><option>模考</option><option>原创</option><option>精选</option>
+        <option value="">全部来源</option><option>国考</option><option>省考</option><option>选调</option>
       </select>
       <select id="searchMod" aria-label="题目模块" onchange="doSearch()">
         <option value="">全部模块</option>${MODS.map(m=>`<option>${m}</option>`).join('')}
@@ -567,10 +1211,10 @@ function renderPractice(){
     </div>
     <div id="searchResults" class="search-results"><div class="muted">输入关键词开始检索…</div></div>
     <div class="btn-row" style="margin-top:10px">
-      <button class="btn" onclick="startQuiz(shuffle(__lastSearch||[]),'检索结果练习 '+ (__lastSearch||[]).length+'题')">▶ 练习所选</button>
-      <button class="btn" onclick="exportFiltered('json')">⬇ 导出 JSON</button>
-      <button class="btn" onclick="exportFiltered('txt')">⬇ 导出文本</button>
-      <button class="btn gold" onclick="printFiltered()">🖨 打印 / PDF</button>
+      <button class="btn" onclick="startQuiz(shuffle(__lastSearch||[]),'检索结果练习 '+ (__lastSearch||[]).length+'题')"> 练习所选</button>
+      <button class="btn" onclick="exportFiltered('json')"> 导出 JSON</button>
+      <button class="btn" onclick="exportFiltered('txt')"> 导出文本</button>
+      <button class="btn gold" onclick="printFiltered()"> 打印 / PDF</button>
     </div>
   </div>`;
 }
@@ -713,9 +1357,9 @@ function exportFiltered(kind){
   if(!list.length){ toast('请先搜索出题目再导出'); return; }
   if(kind==='json'){
     const data={exported:new Date().toISOString(), count:list.length, questions:list.map(q=>({mod:q.mod,id:q.id,type:q.type,multi:q.multi||false,stem:q.stem,options:q.options,answer:q.multi?q.answer:('ABCD'[q.answer]),analysis:q.analysis,tag:q.tag,images:q.images||[],opt_images:q.opt_images||[]}))};
-    downloadFile('致泽学堂_检索导出_'+Date.now()+'.json', JSON.stringify(data,null,1), 'application/json');
+    downloadFile('同舟共济_检索导出_'+Date.now()+'.json', JSON.stringify(data,null,1), 'application/json');
   } else {
-    let txt='致泽学堂题库导出（共'+list.length+'题）\n生成时间：'+new Date().toLocaleString()+'\n'+'='.repeat(40)+'\n\n';
+    let txt='同舟共济题库导出（共'+list.length+'题）\n生成时间：'+new Date().toLocaleString()+'\n'+'='.repeat(40)+'\n\n';
     list.forEach((q,i)=>{
       txt+=`【${i+1}】[${q.mod}] ${q.type}${q.multi?'（多选）':''} ${qSource(q)}\n`;
       txt+=q.stem+'\n';
@@ -725,7 +1369,7 @@ function exportFiltered(kind){
       if(qPoints(q)) txt+=`考点：${qPoints(q)}\n`;
       txt+=`解析：${q.analysis.replace(/【[^】]*】\n?/g,'')}\n\n${'-'.repeat(30)}\n\n`;
     });
-    downloadFile('致泽学堂_检索导出_'+Date.now()+'.txt', txt, 'text/plain;charset=utf-8');
+    downloadFile('同舟共济_检索导出_'+Date.now()+'.txt', txt, 'text/plain;charset=utf-8');
   }
   toast('已导出 '+list.length+' 题');
 }
@@ -741,7 +1385,7 @@ function printFiltered(){
   if(!list.length){ toast('请先搜索出题目再导出'); return; }
   const w=window.open('','_blank');
   if(!w){ toast('浏览器拦截了打印窗口，请允许本站弹出窗口','error'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><base href="${baseHref()}"><title>致泽学堂 · 题目与解析</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><base href="${baseHref()}"><title>同舟共济 · 题目与解析</title>
   <style>body{font-family:'Microsoft YaHei',sans-serif;padding:24px;color:#222;max-width:820px;margin:0 auto}
   .q{margin-bottom:22px;padding-bottom:16px;border-bottom:1px dashed #ccc;page-break-inside:avoid}
   .no{font-weight:700;color:#3d7edb;margin-bottom:6px}.stem{margin-bottom:8px;line-height:1.7}
@@ -750,14 +1394,14 @@ function printFiltered(){
   .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:8px;background:#eee;margin:0 4px 2px 0}
   img{max-width:100%}
   h1{color:#1b2a4a;text-align:center}@media print{.q{break-inside:avoid}}</style></head><body>
-  <h1>📘 致泽学堂 · 题目与解析（${list.length} 题）</h1>
+  <h1> 同舟共济 · 题目与解析（${list.length} 题）</h1>
   <p style="text-align:center;color:#888">生成时间：${new Date().toLocaleString()}</p>
   ${list.map((q,i)=>`<div class="q"><div class="no">${i+1}. [${q.mod}] ${q.type}${q.multi?'（多选）':''}</div>
     <div style="margin:4px 0">${srcLineHtml(q)}</div>${qRate(q)?`<div class="tag" style="background:#fdf3e2;color:#e0962f">正确率 ${qRate(q)}%</div>`:''}${qPoints(q)?`<div class="tag" style="background:#fdeaea;color:#d96a4f">${esc(qPoints(q))}</div>`:''}
     ${q.mat?`<div class="ana" style="background:#f8f9fa;border-color:#999">${printMatHtml(q)}</div>`:''}
     <div class="stem">${printStemHtml(q)}</div>
     <div class="opt">${printOptsHtml(q)}</div>
-    <div class="ans">✅ 答案：${q.multi?q.answer:('ABCD'[q.answer])}</div>
+    <div class="ans"> 答案：${q.multi?q.answer:('ABCD'[q.answer])}</div>
     <div class="ana">${esc(cleanAnalysisText(q.analysis))}</div></div>`).join('')}
   ${printWaitScript()}
   </body></html>`);
@@ -784,22 +1428,20 @@ const MOD_ORDER = ['政治理论','常识判断','言语理解','数量关系','
 let __paperCfg = null;
 function renderCustomQuiz(){
   $('#view').innerHTML=`
-  <div class="card"><h3><span class="dot"></span>🎯 自定义组卷</h3>
-    <div class="muted mb10">按各地国省考卷种结构智能组卷（致泽学堂特色）——可选完整模考卷或小卷子，在线答题或导出打印</div>
+  <div class="card"><h3><span class="dot"></span> 自定义组卷</h3>
+    <div class="muted mb10">按各地国省考卷种结构智能组卷（同舟共济特色）——可选完整套卷或小卷子，在线答题或导出打印</div>
     <div class="field"><label>卷种模板（自动填充各模块题量，可改）</label>
       <select id="pcType" onchange="applyPaperCfg()">
         ${Object.keys(PAPER_CONFIGS).map(k=>`<option value="${k}">${k}（${PAPER_CONFIGS[k].total}题/${PAPER_CONFIGS[k].time}分钟）</option>`).join('')}
         <option value="custom">自定义（手动填写）</option>
       </select></div>
-    <div class="field"><label>题目范围</label>
-      <select id="pcScope"><option value="all">全部题库（含解析）</option><option value="真题">仅真题（国考/省考）</option><option value="模考">仅模考题</option></select></div>
     <div class="field"><label>导出样式 <span class="muted">（全真模式=真题卷版式，隐藏来源注明/正确率，模拟真实考场；练习模式=每题标注详细来源与难度）</span></label>
       <label class="switch-inline"><input type="checkbox" id="pcFullReal" checked> <b>全真模式</b>（隐藏来源、模拟考场）</label>
     </div>
     <div id="pcMods"></div>
     <div class="btn-row">
-      <button class="btn primary" onclick="buildPaper()">📝 生成试卷</button>
-      <button class="btn gold" onclick="buildPaperAndPrint()">🖨 生成并导出 PDF</button>
+      <button class="btn primary" onclick="buildPaper()"> 生成试卷</button>
+      <button class="btn gold" onclick="buildPaperAndPrint()"> 生成并导出 PDF</button>
     </div>
     <div class="muted mt8">题库池：政治理论 ${(QUESTION_BANK['政治理论']||[]).length} · 常识 ${(QUESTION_BANK['常识判断']||[]).length} · 言语 ${(QUESTION_BANK['言语理解']||[]).length} · 数量 ${(QUESTION_BANK['数量关系']||[]).length} · 判断 ${(QUESTION_BANK['判断推理']||[]).length} · 资料 ${(QUESTION_BANK['资料分析']||[]).length}</div>
   </div>`;
@@ -828,7 +1470,7 @@ function buildPaper(){
   if(!qs.length){ toast('所选范围内题目不足，换个范围'); return; }
   const minutes=selectedPaperMinutes();
   __paperCfg={list:qs, time:minutes};
-  startQuiz(qs, `🎯 ${$('#pcType')?.value||'自定义卷'} · ${qs.length}题（${minutes}分钟）`, minutes*60);
+  startQuiz(qs, `${ico('target')} ${$('#pcType')?.value||'自定义卷'} · ${qs.length}题（${minutes}分钟）`, minutes*60);
 }
 function buildPaperAndPrint(){
   const qs=paperQuestions();
@@ -836,14 +1478,11 @@ function buildPaperAndPrint(){
   printPaper(qs);
 }
 function paperQuestions(){
-  const scope=$('#pcScope')?.value||'all';
   const out=[];
   document.querySelectorAll('.pc-num').forEach(inp=>{
     const mod=inp.dataset.mod; const n=+inp.value||0;
     if(n<=0) return;
-    let pool=QUESTION_BANK[mod]||[];
-    if(scope==='真题') pool=pool.filter(q=>{const s=qSource(q);return s.includes('国考')||s.includes('省考');});
-    if(scope==='模考') pool=pool.filter(q=>qSource(q).includes('模考'));
+    const pool=QUESTION_BANK[mod]||[];
     out.push(...shuffle(pool).slice(0,n).map(q=>q.mod?q:{...q,mod}));
   });
   return out;
@@ -873,14 +1512,14 @@ function renderFillback(){
   const ps=loadPapers();
   const list=Object.entries(ps).sort((a,b)=>b[1].ts-a[1].ts);
   V.innerHTML=`
-  <div class="card"><h3><span class="dot"></span>📥 答案回填</h3>
+  <div class="card"><h3><span class="dot"></span> 答案回填</h3>
     <div class="muted mb10">打印了真题卷？做完后在答题卡上涂卡，回到这里输入卷面右上角的<b>回填码</b>，把答案逐题填进来——自动判卷、记录成绩与错题，与线上做题数据合并分析。</div>
-    <div class="field"><label for="fbCode">回填码（试卷右上角 🔑 处，如 SAT-20260817-1234）</label>
+    <div class="field"><label for="fbCode">回填码（试卷右上角  处，如 SAT-20260817-1234）</label>
       <input id="fbCode" placeholder="SAT-20260817-1234" onkeydown="if(event.key==='Enter')loadFillPaper()"></div>
-    <button class="btn primary" onclick="loadFillPaper()">📖 载入试卷</button>
+    <button class="btn primary" onclick="loadFillPaper()"> 载入试卷</button>
     <div id="fbBody"></div>
   </div>
-  <div class="card"><h3><span class="dot"></span>🗂 已导出的试卷（${list.length}）</h3>
+  <div class="card"><h3><span class="dot"></span> 已导出的试卷（${list.length}）</h3>
     <div class="muted mb10">点击可回填，或删除释放空间</div>
     ${list.length? list.map(([id,p])=>`
       <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)">
@@ -901,7 +1540,7 @@ function loadFillPaper(id){
   const answers=JSON.parse(localStorage.getItem('shangan_fill_'+code)||'{}');
   $('#fbBody').innerHTML=`
     <div class="mt12" style="border-top:2px solid var(--line);padding-top:12px">
-      <h4>📝 ${esc(p.title)} · ${p.n} 题</h4>
+      <h4> ${esc(p.title)} · ${p.n} 题</h4>
       <div class="muted mb10">按题号填入答案（单选填 A/B/C/D，多选填如 AB）。已填 ${Object.keys(answers).length} 题。</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px">
         ${p.qs.map(q=>`<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px;text-align:center">
@@ -909,7 +1548,7 @@ function loadFillPaper(id){
           <input data-q="${q.i}" value="${answers[q.i]||''}" placeholder="-" style="width:100%;text-align:center;border:1px solid var(--line);border-radius:8px;padding:4px;margin-top:2px;font-weight:700" oninput="saveFill('${code}')"></div>`).join('')}
       </div>
       <div class="btn-row">
-        <button class="btn primary" ${p.submittedAt?'disabled':''} onclick="submitFill('${code}')">${p.submittedAt?'✅ 已判分':'✅ 交卷判分'}</button>
+        <button class="btn primary" ${p.submittedAt?'disabled':''} onclick="submitFill('${code}')">${p.submittedAt?' 已判分':' 交卷判分'}</button>
         <button class="btn" onclick="renderFillback()">返回</button>
       </div>
       <div id="fbResult" class="mt12"></div>
@@ -975,13 +1614,13 @@ async function submitFill(code){
   const result=$('#fbResult');
   if(result) result.innerHTML=`
     <div class="card" style="border:2px solid var(--green)">
-      <h3>🎉 判卷完成：${correct}/${filled} 正确（${acc}%）</h3>
+      <h3> 判卷完成：${correct}/${filled} 正确（${acc}%）</h3>
       <div class="muted mb10">成绩已并入学习数据（正确率、错题本、打卡、每日统计）。</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">
         ${Object.entries(byMod).map(([m,s])=>`<div class="hs"><b>${MOD_ICO[m]} ${s.c}/${s.a}</b><span>${m}</span></div>`).join('')}
       </div>
       <details class="mt8"><summary>逐题详情</summary>
-        ${detail.map(d=>`<div style="padding:3px 0;border-bottom:1px dashed #eee">${d.i}. ${d.filled? (d.ok?'✅':'❌')+' '+d.userRaw : '— 未填'} <span class="muted">${esc(d.mod)}</span></div>`).join('')}
+        ${detail.map(d=>`<div style="padding:3px 0;border-bottom:1px dashed #eee">${d.i}. ${d.filled? (d.ok?'':'')+' '+d.userRaw : '— 未填'} <span class="muted">${esc(d.mod)}</span></div>`).join('')}
       </details>
     </div>`;
 }
@@ -1100,11 +1739,11 @@ function printPaper(qs){
   <div class="head">
     <h1>${cfgName}${fullReal?'·全真模拟卷':'·练习卷'}</h1>
     <div class="sub">《行政职业能力测验》 · 作答时限 ${paperMinutes} 分钟 · 满分 100 分</div>
-    <div class="sub">致泽学堂 智能组卷 · ${dateStr} · 共 ${qs.length} 题${fullReal?'':' · 练习模式（含来源标注）'}</div>
-    ${fullReal?`<div class="sub" style="color:#c0392b">🔑 答案回填码：<b>${paperId}</b>（做完后在致泽学堂「答案回填」输入此码，自动判卷并记录学习数据）</div>`:''}
+    <div class="sub">同舟共济 智能组卷 · ${dateStr} · 共 ${qs.length} 题${fullReal?'':' · 练习模式（含来源标注）'}</div>
+    ${fullReal?`<div class="sub" style="color:#c0392b">${ico('key')} 答案回填码：<b>${paperId}</b>（做完后在同舟共济「答案回填」输入此码，自动判卷并记录学习数据）</div>`:''}
   </div>
   <div class="notice"><b>注意事项</b>
-  1. 本试卷为行测模拟题，请用 2B 铅笔在答题卡上作答，在题本上作答一律无效。<br>
+  1. 本试卷题目均取自历年真题，请用 2B 铅笔在答题卡上作答，在题本上作答一律无效。<br>
   2. 监考人员宣布考试开始时，方可开始答题。<br>
   3. 监考人员宣布考试结束时，应立即停止答题，将题本、答题卡翻放桌上。<br>
   4. 答题前请认真阅读答题卡上的注意事项，按规定填涂姓名与准考证号。
@@ -1119,7 +1758,7 @@ function printPaper(qs){
         <div class="opts">${printOptsHtml(q)}</div></div>`;
     }).join('');
   }).join('')}
-  <div class="card-page"><div class="part">📝 答题卡（可打印后涂卡，做完扫码/回填线上判卷）</div>
+  <div class="card-page"><div class="part"> 答题卡（可打印后涂卡，做完扫码/回填线上判卷）</div>
   <table class="card">
     ${Array.from({length:Math.ceil(qs.length/10)},(_,row)=>{
       const cols=Array.from({length:10},(_,c)=>{const n=row*10+c+1; if(n>qs.length) return '<td></td>';
@@ -1127,10 +1766,10 @@ function printPaper(qs){
       return `<tr><td class="ahead" style="width:26px">${row+1}</td>${cols}</tr>`;
     }).join('')}
   </table>
-  <div class="foot">打印后可在上方涂卡；做完后用「致泽学堂 · 答案回填」扫码或拍照回填，自动判卷并记录个人数据</div></div>
-  <div class="ans-page"><div class="part">📋 参考答案与解析（${qs.length} 题）</div>
+  <div class="foot">打印后可在上方涂卡；做完后用「同舟共济 · 答案回填」扫码或拍照回填，自动判卷并记录个人数据</div></div>
+  <div class="ans-page"><div class="part"> 参考答案与解析（${qs.length} 题）</div>
   ${qs.map((q,i)=>`<div class="q"><b>${i+1}. ${q.mod} · ${q.type}</b> 答案：<b>${q.multi?q.answer:('ABCD'[q.answer])}</b>${qRate(q)?`（正确率 ${qRate(q)}%）`:''}${qPoints(q)?` · 考点：${esc(qPoints(q))}`:''}${fullReal?'':'<div style="font-size:10px;color:#8a6d3b">来源：'+esc(srcLine(q))+'</div>'}<div class="material" style="border:none;background:transparent;padding:4px 0 0">${esc(cleanAnalysisText(q.analysis))}</div></div>`).join('')}
-  <div class="foot">本卷由致泽学堂智能生成，仅供学习使用 · 解析版权归原题库方所有</div></div>
+  <div class="foot">本卷由同舟共济智能生成，仅供学习使用 · 解析版权归原题库方所有</div></div>
   ${printWaitScript()}
   </body></html>`);
   w.document.close();
@@ -1145,20 +1784,19 @@ function smartQuiz(){
   store.attempts.forEach(a=>{ if(!a.point) return; const key=a.point.split(' ')[0];
     (pointCount[key]=pointCount[key]||0); });
   const weakPoints=Object.entries(pointCount).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x=>x[0]);
-  const weakMods=MODS.map(m=>{const b=store.stats.byMod[m]||{answered:0,correct:0};return {m,acc:b.answered?b.correct/b.answered:0,n:b.answered};})
-    .filter(x=>x.n>=5).sort((a,b)=>a.acc-b.acc).slice(0,2).map(x=>x.m);
+  const weakModsList=weakMods(2);
   let pool=[];
   if(weakPoints.length){
     pool=allQuestions().filter(q=>{ const p=qPoints(q); return weakPoints.some(wp=>p&&p.includes(wp.split(' ')[0])); });
   }
-  if(pool.length<15 && weakMods.length){
-    pool=pool.concat(allQuestions().filter(q=>weakMods.includes(q.mod)));
+  if(pool.length<15 && weakModsList.length){
+    pool=pool.concat(allQuestions().filter(q=>weakModsList.includes(q.mod)));
   }
   if(pool.length<15){ pool=allQuestions().filter(q=>wrong.some(w=>w.mod===q.mod)); }
   const list=shuffle([...new Set(pool)]).slice(0,15);
   if(!list.length){ toast('题库为空或暂无错题数据'); return; }
-  const info=weakPoints.length?('薄弱考点：'+weakPoints.slice(0,3).join('、')):(weakMods.length?('薄弱模块：'+weakMods.join('、')):'随机强化');
-  startQuiz(list, '🧠 智能组卷 · '+info+' · '+list.length+'题');
+  const info=weakPoints.length?('薄弱考点：'+weakPoints.slice(0,3).join('、')):(weakModsList.length?('薄弱模块：'+weakModsList.join('、')):'随机强化');
+  startQuiz(list, ' 智能组卷 · '+info+' · '+list.length+'题');
 }
 
 /* ============ 每日一练 ============ */
@@ -1184,14 +1822,17 @@ function renderDaily(){
   </div>
   <div class="card"><h3><span class="dot"></span>本周打卡</h3><div class="cal-wrap week-wrap"><div class="weekdays">${'一二三四五六日'.split('').map(w=>`<span>${w}</span>`).join('')}</div><div class="week-grid">${weekStrip()}</div></div></div>`;
 }
-function weekStrip(){
+/* 达标线：传入 minAnswered 时按「当天作答量是否达标」点亮，否则只按是否打卡。 */
+function weekStrip(minAnswered){
   const t=new Date(); const dow=(t.getDay()+6)%7; let html='';
   const monday=new Date(t); monday.setHours(12,0,0,0); monday.setDate(t.getDate()-dow);
   for(let i=0;i<7;i++){
     const d=new Date(monday); d.setDate(monday.getDate()+i);
     const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const done=!!store.checkins[key]; const isT=key===today();
-    html+=`<div class="cal-cell ${done?'done':''} ${isT?'today':''}">${d.getDate()}</div>`;
+    const n=(store.checkins[key]||{}).answered||0;
+    const done=minAnswered? n>=minAnswered : !!store.checkins[key];
+    const isT=key===today();
+    html+=`<div class="cal-cell ${done?'done':''} ${isT?'today':''}" title="${key} ${n}题">${d.getDate()}</div>`;
   }
   return html;
 }
@@ -1208,10 +1849,10 @@ function renderExamConfig(){
       <button class="ec" onclick="renderExamCustom()"><b>自定义</b><span>自选题量/时间</span></button>
     </div>
     <div class="btn-row">
-      <button class="btn gold" onclick="renderCustomQuiz()">🎯 卷种定制组卷（致泽学堂特色）</button>
+      <button class="btn gold" onclick="renderCustomQuiz()"> 卷种定制组卷（同舟共济特色）</button>
     </div>
   </div>
-  <div class="card"><h3><span class="dot"></span>模考技巧</h3><div class="muted">
+  <div class="card"><h3><span class="dot"></span>考场技巧</h3><div class="muted">
     • 资料分析性价比最高，建议优先完成<br>
     • 数量关系放最后，不会的果断放弃<br>
     • 全程控制节奏：平均每题 1 分钟<br>
@@ -1221,7 +1862,7 @@ function renderExamConfig(){
 function examQuick(n){ startQuiz(makeExam(n), `模拟考试 · ${n}题/${n}分钟`, n*60); }
 function renderExamCustom(){
   $('#view').innerHTML=`
-  <div class="card"><h3><span class="dot"></span>自定义模考</h3>
+  <div class="card"><h3><span class="dot"></span>自定义自测</h3>
     <div class="field"><label for="exN">题目数量（10-70）</label><input id="exN" type="number" min="10" max="70" value="40"></div>
     <div class="field"><label for="exT">考试时长（分钟）</label><input id="exT" type="number" min="5" max="150" value="40"></div>
     <button class="btn primary" onclick="examCustom()">开始考试</button>
@@ -1253,24 +1894,205 @@ function renderWrong(){
       <button class="btn" onclick="renderWrongByMod()">按模块筛选</button>
     </div>
   </div>
-  ${list.length===0? `<div class="empty"><span class="big">🎉</span>太棒了，没有待重练的错题！<br><span class="muted">继续刷题保持手感吧</span></div>`:
+  ${list.length===0? `<div class="empty"><span class="big">${ico('trophy')}</span>太棒了，没有待重练的错题！<br><span class="muted">继续刷题保持手感吧</span></div>`:
   `<div class="card"><h3><span class="dot"></span>错题列表（${list.length}）</h3>
    ${list.slice(0,50).map(q=>{const w=store.wrongs[q.id];
      return `<div class="wrong-item"><div class="wt">${esc(q.stem).slice(0,60)}…</div>
      <div class="wm"><span class="tag">${q.mod}</span><span class="tag">错${w.count}次</span><span class="tag">${w.lastWrong}</span>
      <button class="btn small" style="margin-left:auto" onclick="startQuiz([allQuestions().find(x=>x.id==='${q.id}')],'单题精练')">重练</button>
-     <button class="btn small green" onclick="markMastered('${q.id}')">已掌握 ✓</button></div></div>`;}).join('')}
+     <button class="btn small green" onclick="markMastered('${q.id}')">已掌握 </button></div></div>`;}).join('')}
   </div>`}`;
 }
 function renderWrongByMod(){
   const list=wrongList(); const byMod={};
   list.forEach(q=>{ (byMod[q.mod]=byMod[q.mod]||[]).push(q); });
   $('#view').innerHTML=`
-  <div class="card"><h3><span class="dot"></span>按模块重练</h3><button class="btn small" onclick="renderWrong()" style="margin-bottom:10px">← 返回错题本</button>
+  <div class="card"><h3><span class="dot"></span>按模块重练</h3><button class="btn small" onclick="renderWrong()" style="margin-bottom:10px"> 返回错题本</button>
     <div class="mod-list">${Object.keys(byMod).map(m=>`<button class="mod-card" onclick="startQuiz(shuffle(byMod['${m}']),'${m}错题 · '+${byMod[m].length}+'题')"><span class="mi">${MOD_ICO[m]}</span><span class="mt"><b>${m}</b><span>${byMod[m].length} 题待重练</span></span></button>`).join('')}
     </div></div>`;
 }
-function markMastered(qid){ store.wrongs[qid].mastered=true; save(); toast('已标记掌握 ✅','ok'); renderWrong(); }
+function markMastered(qid){ store.wrongs[qid].mastered=true; save(); toast('已标记掌握 ','ok'); renderWrong(); }
+
+/* ============ 申论真题（按需加载 607KB 数据） ============ */
+/* 数据不进首屏、也不进懒加载题库：申论用得比行测少，进页面时再拉。
+   AI 批改直接复用已有的「申论练笔」，不另写一套。 */
+let slPapersPromise=null;
+function ensureShenlunPapers(){
+  if(window.SHENLUN_PAPERS) return Promise.resolve(window.SHENLUN_PAPERS);
+  if(slPapersPromise) return slPapersPromise;
+  slPapersPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='js/bank/shenlun-papers.js?v=2.14.0';
+    s.onload=()=>resolve(window.SHENLUN_PAPERS||[]);
+    s.onerror=()=>{ slPapersPromise=null; reject(new Error('申论真题库加载失败，请检查网络后重试')); };
+    document.head.appendChild(s);
+  });
+  return slPapersPromise;
+}
+let slMatOpen={}, slAnsOpen={};
+function slPaperMeta(p){
+  return `${p.year? p.year+' 国考' : ''}${p.variant? ' · '+p.variant : ''} · ${p.questions.length} 题 · ${p.total_score} 分`;
+}
+async function renderShenlunPapers(paperId){
+  $('#view').innerHTML='<div class="card"><div class="muted">正在加载申论真题…</div></div>';
+  let papers;
+  try{ papers=await ensureShenlunPapers(); }
+  catch(e){
+    $('#view').innerHTML=`<div class="card"><div class="muted" style="color:var(--red)">${esc(e?.message||'加载失败')}</div>
+      <div class="btn-row"><button class="btn" onclick="renderShenlunPapers()">重试</button></div></div>`;
+    return;
+  }
+  const cur = paperId? papers.find(p=>p.id===paperId) : null;
+  if(cur){ renderSlPaper(cur); return; }
+  $('#view').innerHTML=`
+  <header class="page-heading"><span>申论书房</span><h1>申论真题</h1><p>先自己写，写完再对照参考答案与评分要点。</p></header>
+  <div class="card">
+    <h3><span class="dot"></span>国考申论真题（2022–2025）</h3>
+    <div class="muted mb10">共 ${papers.length} 份卷 · ${papers.reduce((s,p)=>s+p.questions.length,0)} 道题，含材料与参考答案。点进去先做，再对照。</div>
+    ${papers.map(p=>`<div class="sl-item">
+      <div class="sl-title"><span>${esc(p.title||p.id)}</span>
+        <button class="btn small primary" onclick="renderShenlunPapers('${esc(p.id)}')">打开</button></div>
+      <div class="muted">${esc(slPaperMeta(p))}${p.duration_min? ` · ${p.duration_min} 分钟`:''}</div>
+    </div>`).join('')}
+  </div>`;
+}
+function renderSlPaper(p){
+  $('#view').innerHTML=`
+  <header class="page-heading"><span>申论真题</span><h1>${esc(p.title||p.id)}</h1><p>${esc(slPaperMeta(p))}${p.duration_min? ` · ${p.duration_min} 分钟`:''}</p></header>
+  <div class="card"><div class="btn-row" style="margin-top:0">
+    <button class="btn" onclick="renderShenlunPapers()"> 返回卷列表</button></div></div>
+  <div class="card"><h3><span class="dot"></span>给定材料（${p.materials.length} 段）</h3>
+    <div class="muted mb10">建议先通读一遍再动笔；申论的时间大半花在读材料上。</div>
+    ${p.materials.map((m,i)=>`<div class="sl-item">
+      <div class="sl-title"><span>${esc(m.name||('材料'+(i+1)))}</span>
+        <button class="btn small" onclick="toggleSlMat('${esc(p.id)}',${i})">${slMatOpen[p.id+'#'+i]? '收起':'展开'}</button></div>
+      ${slMatOpen[p.id+'#'+i]? `<div class="sl-body">${esc(m.text)}</div>`:'<div class="muted">（展开阅读）</div>'}
+    </div>`).join('')}
+  </div>
+  <div class="card"><h3><span class="dot"></span>作答要求（${p.questions.length} 题）</h3>
+    <div class="muted mb10">先自己写完整，再点「对照参考答案」。直接看答案等于白做。</div>
+    ${p.questions.map(q=>{ const key=p.id+'#'+q.no, open=!!slAnsOpen[key];
+      return `<div class="sl-item">
+      <div class="sl-title"><span>第 ${q.no} 题 · ${esc(q.module||'')}</span>
+        <span class="muted">${q.score? q.score+' 分':''}${q.word_limit? ` · ≤${q.word_limit} 字`:''}</span></div>
+      <div class="sl-body">${esc(q.stem)}</div>
+      <div class="btn-row">
+        <button class="btn small" onclick="toggleSlAns('${esc(p.id)}',${q.no})">${open? '收起参考答案':'对照参考答案'}</button>
+        <button class="btn small" onclick="essayFromPaper('${esc(p.id)}',${q.no})">让 AI 批改</button>
+      </div>
+      ${open? `<div class="q-analy" style="background:var(--navy-3);border-color:#cddcea;color:var(--ink-2)">
+        <b>参考答案：</b>${esc(q.reference||'（这道题没有参考答案）')}
+        ${q.points&&q.points.length? `<br><b>评分要点：</b><br>${q.points.map((x,i)=>`${i+1}. ${esc(x)}`).join('<br>')}`:''}
+        ${q.explanation? `<br><b>解析：</b>${esc(q.explanation)}`:''}
+      </div>`:''}
+    </div>`;}).join('')}
+  </div>`;
+}
+function toggleSlMat(paperId,i){ const k=paperId+'#'+i; slMatOpen[k]=!slMatOpen[k]; renderShenlunPapers(paperId); }
+function toggleSlAns(paperId,no){ const k=paperId+'#'+no; slAnsOpen[k]=!slAnsOpen[k]; renderShenlunPapers(paperId); }
+/* 把题目要求带进已有的申论练笔，让 AI 对着它批改 */
+function essayFromPaper(paperId,no){
+  ensureShenlunPapers().then(papers=>{
+    const p=papers.find(x=>x.id===paperId), q=p&&p.questions.find(x=>x.no===no);
+    if(!q){ toast('没有找到这道题','error'); return; }
+    renderEssay();
+    const el=$('#essayReq');
+    if(el) el.value=`【${p.title||p.id} · 第 ${no} 题】\n${q.stem}${q.word_limit? `\n（${q.score} 分，不超过 ${q.word_limit} 字）`:''}`;
+    toast('题目要求已带入，把作文贴进来即可批改','ok');
+  });
+}
+
+/* ============ 申论练笔（AI 批改） ============ */
+/* 这是 AI 风险最高的落点：申论没有标准答案，AI 很容易给出看着专业、实际误导的反馈。
+   两条硬约束：① 绝不给分数或档次预测；② 每个维度必须先引用考生原文为证，不能空泛评价。 */
+const AI_ESSAY_SYSTEM=`你是一位申论辅导老师，正在给一位备考省考的考生批改大作文。
+【最重要的一条】你给的是**参考反馈，不是分数**。绝对不要给出「你能考 XX 分」「大概 XX 分」
+这类判断，也不要预测分数区间或档次——分数只能由阅卷人给出。
+批改要求：
+1. 先判断有没有跑题：作文是否扣住题目要求的主题。若考生没给题目要求，就直说无法判断跑题与否。
+2. 按下面四个维度各写一段，每段**必须先引用考生原文里的一句话**作为依据，再指出问题或优点：
+   【立意与观点】【结构与层次】【论证与素材】【语言与表达】
+3. 每个维度末尾给一条具体可改的建议——指出改哪一句、往哪个方向改，不要只说「建议加强」。
+4. 最后写【最该改的一处】：只挑一处，说清怎么改。
+5. 直接、对事不对人，不要客套话，不要泛泛夸；没写好的地方要直说。
+6. 总字数控制在 800 字以内。`;
+
+let essayOpen={};
+function aiEssayPrompt(requirement, body){
+  return `【题目要求】\n${requirement||'（考生未提供题目要求）'}\n\n【我的作文】\n${body}`;
+}
+function essayTitle(e, i, total){
+  const req=(e.requirement||'').split('\n')[0].trim();
+  return req? req.slice(0,20) : `第 ${total-i} 篇`;
+}
+function essayHistoryHtml(){
+  const list=store.essays||[];
+  if(!list.length) return '';
+  return `<div class="card"><h3><span class="dot"></span>练笔记录（${list.length} 篇）</h3>
+    ${list.map((e,i)=>`<div class="sl-item">
+      <div class="sl-title"><span>${esc(essayTitle(e,i,list.length))} <span class="tag">${e.at? new Date(e.at).toLocaleDateString('zh-CN'):''}</span></span>
+      <span style="display:flex;gap:8px">
+        <button class="btn small" onclick="toggleEssay('${esc(e.id)}')">${essayOpen[e.id]? '收起':'展开'}</button>
+        <button class="star" aria-label="删除这篇练笔" onclick="delEssay('${esc(e.id)}')"></button>
+      </span></div>
+      ${essayOpen[e.id]
+        ? `<div class="sl-body md-body">${mdToHtml(e.feedback)}</div><div class="muted mt8">原文 ${e.body.length} 字${e.requirement? ' · 含题目要求':''}</div>`
+        : '<div class="muted">（展开查看批改）</div>'}
+    </div>`).join('')}
+  </div>`;
+}
+function renderEssay(){
+  $('#view').innerHTML=`
+  <header class="page-heading"><span>申论书房</span><h1>申论练笔</h1><p>贴进你的作文，AI 按测评维度给参考反馈——不是分数。</p></header>
+  <div class="card">
+    <h3><span class="dot"></span> 提交一篇</h3>
+    <div class="field"><label for="essayReq">题目要求（选填；填了 AI 才能判断有没有跑题）</label><textarea id="essayReq" rows="3" placeholder="把题目要求贴进来…"></textarea></div>
+    <div class="field"><label for="essayBody">作文正文</label><textarea id="essayBody" rows="12" placeholder="把你的作文粘进来（至少 200 字）…"></textarea></div>
+    <div class="btn-row">
+      <button class="btn primary" id="essayBtn" onclick="submitEssay()">提交批改</button>
+      <button class="btn" onclick="clearEssayForm()">清空</button>
+    </div>
+    <div class="muted mt8">AI 给的是参考反馈，<b>不是官方分数</b>；批改会把作文内容发送给你自己配置的 AI 接口。</div>
+  </div>
+  <div id="essayResult"></div>
+  ${essayHistoryHtml()}`;
+}
+async function submitEssay(){
+  const requirement=($('#essayReq')?.value||'').trim();
+  const body=($('#essayBody')?.value||'').trim();
+  if(body.length<200){ toast('作文太短了，至少 200 字再提交','error'); return; }
+  if(!window.AI?.ready()){ toast('请先到「我的书斋 → AI 接入」配置接口','error'); return; }
+  const btn=$('#essayBtn'); if(btn){ btn.disabled=true; btn.textContent='批改中…'; }
+  $('#essayResult').innerHTML='<div class="card"><div class="muted">AI 正在批改，长文可能要十几秒…</div></div>';
+  try{
+    const text=await window.AI.chat(
+      [{role:'system',content:AI_ESSAY_SYSTEM},{role:'user',content:aiEssayPrompt(requirement,body)}],
+      {maxTokens:2400, temperature:0.3, timeoutMs:180000});
+    const id='e'+Date.now();
+    store.essays=store.essays||[];
+    store.essays.push({id, at:Date.now(), requirement:requirement.slice(0,2000), body:body.slice(0,6000), feedback:text.slice(0,6000)});
+    if(store.essays.length>ESSAY_LIMIT) store.essays.splice(0, store.essays.length-ESSAY_LIMIT);
+    save();
+    essayOpen[id]=true;
+    renderEssay();
+    toast('批改完成','ok');
+  }catch(e){
+    $('#essayResult').innerHTML=`<div class="card"><div class="muted" style="color:var(--red)">${esc(e?.message||'批改失败，请重试')}</div></div>`;
+    if(btn){ btn.disabled=false; btn.textContent='提交批改'; }
+  }
+}
+function toggleEssay(id){ essayOpen[id]=!essayOpen[id]; renderEssay(); }
+function delEssay(id){
+  if(!confirm('删除这篇练笔和它的批改反馈？')) return;
+  store.essays=(store.essays||[]).filter(e=>e.id!==id);
+  delete essayOpen[id];
+  save(); renderEssay(); toast('已删除');
+}
+function clearEssayForm(){
+  if($('#essayReq')) $('#essayReq').value='';
+  if($('#essayBody')) $('#essayBody').value='';
+  if($('#essayResult')) $('#essayResult').innerHTML='';
+}
 
 /* ============ 申论素材 ============ */
 function renderShenlun(cat){
@@ -1279,9 +2101,17 @@ function renderShenlun(cat){
   const items=[...SHENLUN_BANK.filter(s=>cur==='全部'||s.cat===cur), ...store.customSl.filter(s=>cur==='全部'||s.cat===cur)];
   $('#view').innerHTML=`
   <header class="page-heading"><span>申论书房</span><h1>读材料，积素材，练表达</h1><p>金句、热点、案例与写作框架集中整理；学习数据仍保存在本地。</p></header>
+  <div class="card"><h3><span class="dot"></span> 申论真题</h3>
+    <div class="muted mb10">国考申论真题 2022–2025（副省／地市／行政执法）共 12 份卷 59 题，含材料与参考答案。先自己写，再对照。</div>
+    <div class="btn-row"><button class="btn primary" onclick="renderShenlunPapers()">去做真题</button></div>
+  </div>
+  <div class="card"><h3><span class="dot"></span> 申论练笔</h3>
+    <div class="muted mb10">写完大作文贴进来，AI 按「立意／结构／论证／语言」四个维度给参考反馈——<b>不是分数</b>。已练 ${(store.essays||[]).length} 篇。</div>
+    <div class="btn-row"><button class="btn primary" onclick="renderEssay()">去练笔</button></div>
+  </div>
   <div class="card"><h3><span class="dot"></span>申论素材库</h3>
     <div class="muted mb10">金句 · 热点 · 案例 · 框架，分类积累，考前冲刺背一背。</div>
-    <div class="field"><input id="slSearch" placeholder="🔍 搜索素材关键词…" oninput="renderShenlunSearch()"></div>
+    <div class="field"><input id="slSearch" placeholder=" 搜索素材关键词…" oninput="renderShenlunSearch()"></div>
     <div class="sl-nav">${cats.map(c=>`<button class="chip ${c===cur?'active':''}" aria-pressed="${c===cur?'true':'false'}" onclick="renderShenlun(decodeURIComponent('${inlineArg(c)}'))">${esc(c)}</button>`).join('')}</div>
   </div>
   <div id="slList">${shenlunItems(items)}</div>
@@ -1293,12 +2123,12 @@ function renderShenlun(cat){
   </div>`;
 }
 function shenlunItems(items){
-  if(!items.length) return '<div class="empty"><span class="big">📭</span>暂无素材</div>';
+  if(!items.length) return '<div class="empty"><span class="big"></span>暂无素材</div>';
   return items.map((s,i)=>{ const isFav=store.favs.includes(s.title);
     const arg=inlineArg(s.title);
     return `<div class="sl-item ${isFav?'fav':''}"><div class="sl-title"><span>${esc(s.title)} <span class="tag">${esc(s.cat)}</span></span>
-    <span style="display:flex;gap:8px"><button class="star ${isFav?'on':''}" aria-label="${isFav?'取消收藏':'收藏'}：${esc(s.title)}" onclick="toggleFav(decodeURIComponent('${arg}'))">★</button>
-    ${s.custom?`<button class="star" aria-label="删除素材" onclick="delCustomSl(decodeURIComponent('${arg}'))">🗑</button>`:''}</span></div>
+    <span style="display:flex;gap:8px"><button class="star ${isFav?'on':''}" aria-label="${isFav?'取消收藏':'收藏'}：${esc(s.title)}" onclick="toggleFav(decodeURIComponent('${arg}'))"></button>
+    ${s.custom?`<button class="star" aria-label="删除素材" onclick="delCustomSl(decodeURIComponent('${arg}'))">${ico('trash')}</button>`:''}</span></div>
     <div class="sl-body">${esc(s.body)}</div></div>`;}).join('');
 }
 function renderShenlunSearch(){
@@ -1309,13 +2139,13 @@ function renderShenlunSearch(){
 function toggleFav(title){
   const i=store.favs.indexOf(title);
   i>=0?store.favs.splice(i,1):store.favs.push(title);
-  save(); renderShenlun(); toast(i>=0?'已取消收藏':'已收藏 ❤️', i>=0?'':'ok');
+  save(); renderShenlun(); toast(i>=0?'已取消收藏':'已收藏 ❤', i>=0?'':'ok');
 }
 function addCustomSl(){
   const title=$('#slTitle').value.trim(), body=$('#slBody').value.trim(), cat=$('#slCat').value;
   if(!title||!body){ toast('标题和内容不能为空','error'); return; }
   store.customSl.push({cat,title,body,custom:true});
-  save(); toast('素材已保存 ✅','ok'); renderShenlun();
+  save(); toast('素材已保存 ','ok'); renderShenlun();
 }
 function delCustomSl(title){
   store.customSl=store.customSl.filter(s=>s.title!==title);
@@ -1347,7 +2177,7 @@ function renderMore(){
     <div class="muted mb10">连续打卡 ${streakDays()} 天，共打卡 ${Object.keys(store.checkins).length} 天。每天首次完成练习即自动打卡。</div>
     <div class="cal-wrap"><div class="weekdays">${'一二三四五六日'.split('').map(w=>`<span>${w}</span>`).join('')}</div><div class="cal-grid">${heatmap()}</div></div>
   </div>
-  <div class="card"><h3><span class="dot"></span>🍅 番茄专注钟</h3>
+  <div class="card"><h3><span class="dot"></span> 番茄专注钟</h3>
     <div class="pomo-circle" id="pomoC"><div class="pomo-time" id="pomoT">25:00</div></div>
     <div class="pomo-state" id="pomoS">工作 25 分钟 · 休息 5 分钟</div>
     <div class="btn-row">
@@ -1360,43 +2190,23 @@ function renderMore(){
     <div class="list-row"><div><div class="l-title">艾宾浩斯复习提醒</div><div class="l-sub">错题按 1/2/4/7/15 天提醒复习，今日 ${due.length} 题</div></div>
     <button type="button" class="switch ${store.settings.reviewOn?'on':''}" aria-label="艾宾浩斯复习提醒" aria-pressed="${store.settings.reviewOn?'true':'false'}" onclick="toggleReview()"></button></div>
   </div>
-  <div class="card"><h3><span class="dot"></span>📄 真题资源库（全网精选）</h3>
-    <div class="muted mb10">以下为全网公开的历年真题与题库资源，点开即可使用：</div>
-    <div class="sl-item"><div class="sl-title"><span>🏛️ 历年省考行测真题 PDF（2003-2025）</span></div>
-      <div class="sl-body">全网最全省考真题库：30+ 省市历年《行测》真题+答案解析 PDF（1.1GB，持续更新），含联考/选调/深圳市考等。
-      获取：github.com/SGHCN0762/civil-provice-exam-xingce → 下载 ZIP 或按需下载单个 PDF 打印刷题。</div>
-      <div class="btn-row"><button class="btn small primary" onclick="openUrl('https://github.com/SGHCN0762/civil-provice-exam-xingce')">打开仓库</button></div>
-    </div>
-    <div class="sl-item"><div class="sl-title"><span>📱 粉笔真题在线刷（含 2026 国考最新）</span></div>
-      <div class="sl-body">粉笔官网真题页免登录可看：国考 36 套（2026 行政执法/地市级/副省级最新）+ 30 省市真题 + 国考/省考模拟题，在线作答。登录粉笔账号可解锁解析与更多功能。</div>
-      <div class="btn-row"><button class="btn small primary" onclick="openUrl('https://www.fenbi.com/spa/tiku/guide/realTest/xingce/xingce')">打开粉笔真题</button>
-      <button class="btn small" onclick="openUrl('https://www.fenbi.com/spa/tiku/guide/mock/xingce/xingce')">粉笔模考</button></div>
-    </div>
-    <div class="sl-item"><div class="sl-title"><span>📚 申论/综应题库（3853+1035 题）</span></div>
-      <div class="sl-body">结构化申论题库（公文写作/概括/对策/文章写作等）+ 事业单位综应题库，含题干、参考答案、答题演示、考点解析。
-      获取：github.com/2421873411a-rgb/gongkao-tiku</div>
-      <div class="btn-row"><button class="btn small primary" onclick="openUrl('https://github.com/2421873411a-rgb/gongkao-tiku')">打开仓库</button></div>
-    </div>
-    <div class="sl-item"><div class="sl-title"><span>🤖 粉笔历年真题批量下载（爬虫）</span></div>
-      <div class="sl-body">开源爬虫，填入粉笔账号密码即可批量下载粉笔历年真题（含国考/省考 PDF）。需要粉笔账号，账号密码仅用于本机登录。</div>
-      <div class="btn-row"><button class="btn small primary" onclick="openUrl('https://github.com/dduutt/fenbi')">打开项目</button></div>
-    </div>
-  </div>
-  <div class="card"><h3><span class="dot"></span>⚡ 题库离线加速</h3>
+  <div class="card"><h3><span class="dot"></span> 题库离线加速</h3>
     <div class="muted">${bankCacheStatusText()}。缓存仅保存公共题库，约占 150MB；版本更新后会自动失效并重建。</div>
     <div class="btn-row"><button class="btn" onclick="clearBankCache()">清理题库缓存</button></div>
   </div>
+  ${renderAiConfig()}
   <div class="card"><h3><span class="dot"></span>数据管理</h3>
+    <div class="muted mb10" ${backupStatus().warn? 'style="color:var(--red)"':''}>${backupStatus().text}</div>
     <div class="btn-row">
-      <button class="btn" onclick="exportData()">📤 导出备份</button>
-      <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入备份</button>
-      <button class="btn red" onclick="confirmReset()">🗑 清空数据</button>
+      <button class="btn" onclick="exportData()"> 导出备份</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()"> 导入备份</button>
+      <button class="btn red" onclick="confirmReset()"> 清空数据</button>
       <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(this)">
     </div>
     <div class="muted mt8">数据保存在浏览器本地（localStorage），导出为 JSON 文件可随时恢复或迁移到其他设备。</div>
   </div>
   <div class="card"><h3><span class="dot"></span>关于</h3>
-    <div class="muted">致泽学堂 v2.4.0 — 公务员考试学习与成长平台。纯前端、题库持久缓存、离线加速，学习数据默认保存在当前浏览器。以学致知，以行泽民。</div>
+    <div class="muted">同舟共济 v2.20.0 — 公务员考试学习与成长平台。纯前端、题库持久缓存、离线加速，学习数据默认保存在当前浏览器。</div>
   </div>`;
 }
 function heatmap(){
@@ -1414,11 +2224,24 @@ function heatmap(){
   }
   return html;
 }
+/* 备份提醒：架构选了「数据存在用户浏览器」，代价就是换设备/清数据会丢。
+   这是那条取舍的已知短板，必须在界面上主动提醒，不能等出事。 */
+function backupStatus(){
+  const last=store.settings.lastExport||0;
+  const hasData=store.stats.answered>0 || (store.essays||[]).length>0 || Object.keys(store.wrongs).length>0;
+  if(!hasData) return {warn:false, text:'还没有学习数据，暂时不用备份。'};
+  if(!last) return {warn:true, text:'从未导出过备份——换手机或清浏览器数据就会全部丢失，建议现在导出一份。'};
+  const days=Math.floor((Date.now()-last)/86400000);
+  if(days>=14) return {warn:true, text:`上次导出备份是 ${days} 天前，建议再导一份。`};
+  return {warn:false, text:`上次导出备份：${days===0?'今天':days+' 天前'}。`};
+}
 function exportData(){
   const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=`致泽学堂备份_${today()}.json`; a.click();
-  toast('备份已导出 ✅','ok');
+  a.download=`同舟共济备份_${today()}.json`; a.click();
+  store.settings.lastExport=Date.now(); save();
+  toast('备份已导出 ','ok');
+  renderView(currentView());      // 让首页/书斋的备份提醒立刻消失
 }
 function importData(input){
   const f=input.files[0]; if(!f) return;
@@ -1426,7 +2249,7 @@ function importData(input){
   reader.onload=e=>{ try{ const d=JSON.parse(e.target.result);
     const nextStore=normalizeStore(d,true);
     if(!save(nextStore)){ toast('导入失败：无法保存备份数据','error'); return; }
-    store=nextStore; toast('导入成功 ✅','ok'); renderView('more');
+    store=nextStore; toast('导入成功 ','ok'); renderView('more');
   }catch(err){ toast('备份文件格式不正确','error'); } };
   reader.readAsText(f);
 }
@@ -1451,7 +2274,7 @@ function pomoRender(){
   $('#pomoT').textContent=`${m}:${s}`;
   const pct=pomo.left/pomo.total;
   $('#pomoC').style.background=`conic-gradient(var(--gold) ${pct*360}deg, #eef1f5 0deg)`;
-  $('#pomoS').textContent=pomo.work? (pomo.running?'专注中…':'工作 25 分钟 · 休息 5 分钟') : '休息时间 ☕';
+  $('#pomoS').textContent=pomo.work? (pomo.running?'专注中…':'工作 25 分钟 · 休息 5 分钟') : '休息时间 ';
   $('#pomoBtn').textContent=pomo.running?'暂停':'开始专注';
   $('#pomoBtn').className='btn '+(pomo.work?'primary':'gold');
 }
@@ -1460,7 +2283,7 @@ function pomoToggle(){
   else{ pomo.running=true; pomo.timer=setInterval(()=>{
     pomo.left--;
     if(pomo.left<=0){
-      if(pomo.work){ store.pomo.count++; store.pomo.minutes+=25; save(); $('#pomoCnt').textContent=store.pomo.count; toast('🍅 专注完成，休息 5 分钟吧！','ok'); }
+      if(pomo.work){ store.pomo.count++; store.pomo.minutes+=25; save(); $('#pomoCnt').textContent=store.pomo.count; toast(' 专注完成，休息 5 分钟吧！','ok'); }
       else toast('休息结束，开始下一轮！');
       pomo.work=!pomo.work;
       pomo.left=pomo.work?25*60:5*60; pomo.total=pomo.left;
@@ -1505,7 +2328,7 @@ function updateQuizTimer(){
   const now=Date.now();
   Q.elapsed=Math.min(Q.limit,Math.max(0,Math.floor((now-Q.start)/1000)));
   const left=Math.max(0,Math.ceil((Q.deadline-now)/1000));
-  $('#quizTimer').textContent='⏱ '+fmtClock(left);
+  $('#quizTimer').textContent=' '+fmtClock(left);
   if(now>=Q.deadline){ clearInterval(Q.timer); Q.timer=null; finishQuiz(true); }
 }
 function renderQ(){
@@ -1517,7 +2340,7 @@ function renderQ(){
   const multi=!!q.multi;
   const answered=chosen!==undefined;
   const sel = multi&&answered&&Array.isArray(chosen)? chosen : (multi&&!answered? (Q._multiSel||[]) : []);
-  const matHtml=q.mat? `<div class="q-analy" style="background:var(--navy-3);border-color:#cddcea;color:var(--ink-2);margin-bottom:14px"><b>📄 材料：</b>${renderMat(q)}</div>`:'';
+  const matHtml=q.mat? `<div class="q-analy" style="background:var(--navy-3);border-color:#cddcea;color:var(--ink-2);margin-bottom:14px"><b>${ico('doc')} 材料：</b>${renderMat(q)}</div>`:'';
   const stem=matHtml? q.stem : q.stem;
   $('#quizBody').innerHTML=`
   <div class="q-stem"><span class="q-tag">${MOD_ICO[q.mod]} ${q.mod} · ${q.type}${multi?' · 多选题':''}</span>
@@ -1532,28 +2355,28 @@ function renderQ(){
       if(right) cls+=' correct';
       if(picked && !right) cls+=' wrong';
       if(multi){
-        if(picked&&right) mark='<span class="mark">✅</span>';
-        else if(picked&&!right) mark='<span class="mark">❌</span>';
-        else if(right) mark='<span class="mark" style="right:38px">✓</span>';
+        if(picked&&right) mark='<span class="mark"></span>';
+        else if(picked&&!right) mark='<span class="mark"></span>';
+        else if(right) mark='<span class="mark" style="right:38px"></span>';
       } else if(picked){
-        mark=`<span class="mark">${right?'✅':'❌'}</span>`;
+        mark=`<span class="mark">${right?'':''}</span>`;
       }
     } else if(multi && sel.includes(i)){
       cls+=' multi-sel';
-      mark='<span class="mark">✓</span>';
+      mark='<span class="mark"></span>';
     }
     return `<button class="${cls}" ${answered?'disabled':''} onclick="pick(${i})">
       <span class="ol">${'ABCD'[i]}</span>${optTextHtml(q,i)}${mark}
-      ${Q.marks[q.id]&&!answered?'<span class="marked-tag">⚑ 已标记</span>':''}
+      ${Q.marks[q.id]&&!answered?'<span class="marked-tag"> 已标记</span>':''}
     </button>`;
   }).join('')}
-  ${multi&&!answered? `<button class="btn primary" style="margin-top:14px" onclick="submitMulti()">✓ 确定选择（${sel.length} 项）</button>`:''}
+  ${multi&&!answered? `<button class="btn primary" style="margin-top:14px" onclick="submitMulti()">${ico('check')} 确定选择（${sel.length} 项）</button>`:''}
   ${answered? `
     <div class="q-analy original-analysis"><b>题库原始解析：</b>${esc(cleanAnalysisText(q.analysis))}</div>
     ${renderQuestionAskBox(q,chosen)}`:''}
   `;
   updateFoot();
-  if(Q.limit){ $('#quizTimer').textContent='⏱ '+fmtClock(Math.max(0,Q.limit-Q.elapsed)); }
+  if(Q.limit){ $('#quizTimer').textContent=' '+fmtClock(Math.max(0,Q.limit-Q.elapsed)); }
 }
 function updateFoot(){
   const q=Q.list[Q.idx]; const chosen=Q.answers[q.id];
@@ -1570,7 +2393,7 @@ function updateFoot(){
     return;
   }
   $('#footMark').style.display='';
-  $('#footMark').textContent=Q.marks[q.id]?'⚑ 取消标记':'⚑ 标记';
+  $('#footMark').textContent=Q.marks[q.id]?' 取消标记':' 标记';
   const multiUnanswered = q.multi && chosen===undefined;
   $('#footNext').textContent = multiUnanswered? '确定选择' : (isLast?'交卷':'下一题');
   $('#footNext').className='btn primary';
@@ -1620,18 +2443,19 @@ function finishQuiz(forced){
   const mods={}; Q.list.forEach(q=>{ (mods[q.mod]=mods[q.mod]||{n:0,c:0}); mods[q.mod].n++; if(isCorrect(q,Q.answers[q.id])) mods[q.mod].c++; });
   const tips=acc>=90?'状态极佳，保持！':acc>=75?'发挥稳定，查漏补缺更上一层楼':acc>=60?'基础尚可，错题本多复习': '别灰心，错题就是提分空间，复习后再来！';
   $('#resultBox').innerHTML=`
-    <h3 style="color:var(--navy)">${forced?'⏰ 时间到 · 交卷':'✅ 答题完成'}</h3>
+    <h3 style="color:var(--navy)">${forced?' 时间到 · 交卷':' 答题完成'}</h3>
     <div class="r-score">${acc}<small>%</small></div>
     <div class="r-row">
       <div class="r-cell"><b>${correct}/${total}</b><span>答对/总题数</span></div>
       <div class="r-cell"><b>${unans}</b><span>未作答</span></div>
       <div class="r-cell"><b>${fmtClock(Q.elapsed)}</b><span>用时</span></div>
-      <div class="r-cell"><b>✅</b><span>错题已入错题本</span></div>
+      <div class="r-cell"><b></b><span>错题已入错题本</span></div>
     </div>
     <div class="center mb10">${Object.keys(mods).map(m=>{const p=Math.round(mods[m].c/mods[m].n*100);return `<span class="tag" style="background:${MOD_COLOR[m]}22;color:${MOD_COLOR[m]};font-weight:600">${m} ${p}%</span>`;}).join('')}</div>
-    <div class="r-tip">💬 ${tips}</div>
+    <div class="r-tip"> ${tips}</div>
+    ${answered-correct>0? `<div class="r-tip">${ico('tag')} 回顾时给错题标一下错因（不会／来不及／粗心／蒙的）——App 才能告诉你失分结构，那比分数本身有用。</div>`:''}
     <div class="btn-row">
-      <button class="btn primary" onclick="reviewQuiz()">🔍 逐题回顾</button>
+      <button class="btn primary" onclick="reviewQuiz()"> 逐题回顾</button>
       <button class="btn" onclick="closeResult()">完成</button>
     </div>`;
   $('#resultLayer').classList.remove('hidden');
@@ -1656,7 +2480,7 @@ function renderReview(){
   $('#quizBody').innerHTML=`
   <div class="q-stem"><span class="q-tag">${MOD_ICO[q.mod]} ${q.mod} · ${q.type}${multi?' · 多选题':''}</span>
     <div class="q-tags">${qTagHtml(q)}</div>
-    ${q.mat?`<div class="q-analy" style="background:var(--navy-3);border-color:#cddcea;color:var(--ink-2);margin-bottom:10px"><b>📄 材料：</b>${renderMat(q)}</div>`:''}
+    ${q.mat?`<div class="q-analy" style="background:var(--navy-3);border-color:#cddcea;color:var(--ink-2);margin-bottom:10px"><b>${ico('doc')} 材料：</b>${renderMat(q)}</div>`:''}
     <div class="q-text">${renderStem(q,q.stem)}</div></div>
   ${q.options.map((op,i)=>{
     const right = multi? String(q.answer).includes('ABCD'[i]) : i===q.answer;
@@ -1664,18 +2488,19 @@ function renderReview(){
     let cls='q-opt disabled'+(right?' correct':(picked?' wrong':''));
     let mark='';
     if(multi){
-      if(picked&&right) mark='<span class="mark">✅</span>';
-      else if(picked&&!right) mark='<span class="mark">❌</span>';
-      else if(right) mark='<span class="mark" style="right:38px">✓</span>';
+      if(picked&&right) mark='<span class="mark"></span>';
+      else if(picked&&!right) mark='<span class="mark"></span>';
+      else if(right) mark='<span class="mark" style="right:38px"></span>';
     } else if(picked){
-      mark=`<span class="mark">${right?'✅':'❌'}</span>`;
+      mark=`<span class="mark">${right?'':''}</span>`;
     }
     return `<div class="${cls}">
       <span class="ol">${'ABCD'[i]}</span>${optTextHtml(q,i)}${mark}
     </div>`;
   }).join('')}
   <div class="q-analy original-analysis"><b>题库原始解析：</b>${esc(cleanAnalysisText(q.analysis))}<br><span class="muted">你${chosen!==undefined? '选了 '+qAnsText(q,chosen)+(isCorrect(q,chosen)?'，回答正确':'，回答错误'):'未作答'} · 正确答案 ${qAnsText(q,q.answer)}</span></div>
-  ${renderQuestionAskBox(q,chosen)}`;
+  ${renderQuestionAskBox(q,chosen)}
+  ${wrongReasonHtml(q,chosen)}`;
   updateFoot();
 }
 function reviewNav(dir){ Q.idx+=dir; if(Q.idx<0)Q.idx=0; if(Q.idx>=Q.list.length)Q.idx=Q.list.length-1; renderReview(); }
@@ -1722,12 +2547,21 @@ window.saveFill=saveFill; window.submitFill=submitFill; window.registerPaper=reg
 window.renderAnalysis=renderAnalysis; window.smartQuiz=smartQuiz;
 window.doSearch=doSearch; window.searchDebounced=searchDebounced; window.startSearchResult=startSearchResult; window.exportFiltered=exportFiltered; window.printFiltered=printFiltered;
 window.exportData=exportData; window.importData=importData; window.confirmReset=confirmReset; window.clearBankCache=clearBankCache;
-window.openUrl=(u)=>{ window.open(u,'_blank','noopener,noreferrer'); };
 window.toggleReview=toggleReview; window.pomoToggle=pomoToggle; window.pomoReset=pomoReset;
 window.reviewQuiz=reviewQuiz; window.reviewNav=reviewNav; window.closeResult=closeResult;
 window.setUiScene=setUiScene; window.setUiRipple=setUiRipple;
 window.fillAskPrompt=fillAskPrompt; window.sendAsk=sendAsk; window.askMic=askMic;
 window.openGrowthTool=openGrowthTool; window.chooseUiScene=chooseUiScene; window.toggleUiRipple=toggleUiRipple;
+window.savePlan=savePlan; window.startPlanQuiz=startPlanQuiz;
+window.markWhy=markWhy;
+window.aiDiagnose=aiDiagnose; window.saveAiCfg=saveAiCfg; window.testAiCfg=testAiCfg;
+window.fetchAiModels=fetchAiModels; window.pickAiModel=pickAiModel;
+window.aiPlan=aiPlan; window.aiClear=aiClear; window.aiGuessWhy=aiGuessWhy;
+window.renderEssay=renderEssay; window.submitEssay=submitEssay; window.toggleEssay=toggleEssay;
+window.delEssay=delEssay; window.clearEssayForm=clearEssayForm;
+window.renderShenlunPapers=renderShenlunPapers; window.toggleSlMat=toggleSlMat;
+window.toggleSlAns=toggleSlAns; window.essayFromPaper=essayFromPaper;
+window.copyAiCfg=copyAiCfg; window.importAiCfg=importAiCfg;
 applyUiPrefs();
 pomoRender();
 switchTab('dashboard');

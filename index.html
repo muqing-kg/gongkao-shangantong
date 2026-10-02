@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>致泽学堂 · 以学致知，以行泽民</title>
-<meta name="description" content="致泽学堂 — 公务员考试学习与成长平台：行测研习、申论书房、错题温习、模考组卷、能力分析与问泽学习助手。纯前端离线可用，学习数据保存在本地。">
+<meta name="description" content="致泽学堂 — 公务员考试学习与成长平台：行测研习、申论书房、错题温习、模考组卷、能力分析与上岸小助手学习助手。纯前端离线可用，学习数据保存在本地。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='3' y='3' width='58' height='58' rx='15' fill='%2317384c'/%3E%3Cpath d='M16 20Q32 13 48 20' fill='none' stroke='%23f5eedf' stroke-width='3.5' stroke-linecap='round'/%3E%3Cpath d='M18 25Q25 24 31 29V43Q25 38 18 39ZM46 25Q39 24 33 29V43Q39 38 46 39Z' fill='%23f5eedf'/%3E%3Cpath d='M17 47Q32 42 47 47M21 52Q32 48 43 52' fill='none' stroke='%23b58a4b' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css?v=2.4.0">
 </head>
@@ -22,7 +22,7 @@
       <button class="tab" data-view="practice">行测研习</button>
       <button class="tab" data-view="shenlun">申论书房</button>
       <button class="tab" data-view="growth">修业成长</button>
-      <button class="tab ask-tab" data-view="ai">问泽</button>
+      <button class="tab ask-tab" data-view="ai">上岸小助手</button>
       <button class="tab" data-view="profile">我的书斋</button>
     </nav>
     <div class="sidebar-motto"><q>以学致知，以行泽民</q><small>静心研习，日日精进</small></div>
@@ -36,7 +36,7 @@
       </div>
       <div class="top-actions">
         <span id="streakBadge" class="streak-badge" title="连续打卡天数">连续学习 <b>0</b> 天</span>
-        <button type="button" class="top-ask" data-open-view="ai">✦ 问泽</button>
+        <button type="button" class="top-ask" data-open-view="ai">✦ 上岸小助手</button>
       </div>
       <div id="bankProgress" class="bank-progress hidden" title="完整题库加载进度" role="status" aria-live="polite"><i></i><span></span></div>
     </header>
@@ -71,15 +71,10 @@
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script src="js/questions.js"></script>
-<script src="js/questions2.js"></script>
-<script src="js/questions3.js"></script>
-<script src="js/questions4.js"></script>
-<script src="js/questions5.js"></script>
-<!-- questions6.js（约352MB模考库）由 lazy-bank.js 在首屏完成后异步加载 -->
-<script src="js/lazy-bank.js?v=2.2.1"></script>
-<script src="js/questions7.js"></script>
-<script src="js/questions8.js"></script>
-<script src="js/shenlun.js"></script>
+<script src="js/icons.js?v=2.4.0"></script>
+<script src="js/lazy-bank.js?v=2.4.0"></script>
+<script src="js/shenlun.js?v=2.4.0"></script>
+<script src="js/ai.js?v=2.4.0"></script>
 <script src="js/app.js?v=2.4.0"></script>
 </body>
 </html>

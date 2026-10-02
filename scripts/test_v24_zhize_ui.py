@@ -29,7 +29,7 @@ with sync_playwright() as p:
     )
     check("品牌图标使用内联SVG而非单字占位", page.locator(".brand-logo svg").count() == 1)
 
-    expected = ["学堂首页", "行测研习", "申论书房", "修业成长", "问泽", "我的书斋"]
+    expected = ["学堂首页", "行测研习", "申论书房", "修业成长", "上岸小助手", "我的书斋"]
     labels = page.locator(".tabbar .tab").all_inner_texts()
     check("桌面一级导航顺序正确", labels == expected, str(labels))
     check("桌面一级导航六项均可见", page.locator(".tabbar .tab:visible").count() == 6)

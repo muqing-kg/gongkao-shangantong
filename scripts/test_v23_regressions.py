@@ -18,6 +18,9 @@ with sync_playwright() as p:
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto(URL, wait_until='domcontentloaded', timeout=120000)
+    # 题库只收真题后首屏为空（0 题），凡是依赖 allQuestions() 的断言都要先等懒加载完成
+    page.wait_for_function(
+        "() => window.LAZY_BANK_STATUS && window.LAZY_BANK_STATUS.loaded", timeout=120000)
 
     # 空列表不能打开无法退出的空白答题层。
     page.evaluate("startQuiz([], '空练习')")

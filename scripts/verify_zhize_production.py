@@ -24,6 +24,9 @@ with sync_playwright() as p:
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(URL, wait_until="domcontentloaded", timeout=120000)
+        # app.js 末尾才初始化路由状态；DCL 后直接调 switchTab 有竞态风险，
+        # 以首页 .hero 渲染完成作为「应用已就绪」信号。
+        page.wait_for_selector(".hero", timeout=60000)
         page.evaluate("if(window.LAZY_BANK_STATUS) window.LAZY_BANK_STATUS.loaded=true; switchTab('dashboard')")
         layout = page.evaluate("""() => ({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,ask:!!document.querySelector('.ask-composer[data-context="home"]'),current:document.querySelectorAll('.tab[aria-current="page"]').length})""")
         check(f"{label} 首页无横向溢出", layout["scroll"] <= layout["client"], str(layout))

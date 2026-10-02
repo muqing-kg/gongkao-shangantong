@@ -26,11 +26,11 @@ def load_concat(paths):
                     out.append(q)
     return out
 
-base = [os.path.join(ROOT, 'js', f) for f in ['questions4.js','questions5.js','questions7.js','questions8.js']]
+base = [os.path.join(ROOT, 'js', f) for f in ['questions5.js','questions7.js','questions8.js']]
 chunks6 = sorted(glob.glob(os.path.join(ROOT, 'js', 'bank', 'questions6_*.js')))
 chunks9 = sorted(glob.glob(os.path.join(ROOT, 'js', 'bank', 'questions9_*.js')))
 qs = load_concat(base + chunks6 + chunks9)
-check('重建题库总数=58978（不含90原创）', len(qs) == 58978, str(len(qs)))
+check('重建题库总数=12908（全为真题）', len(qs) == 12908, str(len(qs)))
 
 # 脏数据清零
 analysis = '\n'.join(str(q.get('analysis','')) for q in qs)
@@ -63,21 +63,24 @@ check('每题至少一个结构化来源', all(isinstance(q.get('src'), dict) an
 numbered_sources = [s for s in all_sources if s.get('exam') not in ('精选','原创')]
 check('真题/模考每个来源均绑定原卷题号', all(s.get('num') is not None for s in numbered_sources), f'缺题号 {sum(s.get("num") is None for s in numbered_sources)}')
 multi = [q for q in qs if q.get('srcs')]
-check('多来源题数量充足', len(multi) >= 37000, str(len(multi)))
+check('多来源题数量充足', len(multi) >= 3200, str(len(multi)))
 check('同题来源-题号对无重复', all(len({(s.get('name'),s.get('num')) for s in [q['src']]+q.get('srcs',[])}) == 1+len(q.get('srcs',[])) for q in qs))
 
 # 选调来源已补全
 xd = [q for q in qs if str(q.get('id','')).startswith('xd')]
-check('选调真题已纳入清洗重建', len(xd) == 6425, str(len(xd)))
+check('选调真题已纳入清洗重建', len(xd) == 6412, str(len(xd)))
 check('选调来源年份/地区已提取', sum(bool(q['src'].get('year')) for q in xd) >= 6300 and sum(bool(q['src'].get('province')) for q in xd) >= 6300)
 
-# manifest 与文件一致
-for prefix, files, manifest in [('questions6', chunks6, 'questions6-manifest.json'), ('questions9', chunks9, 'questions9-manifest.json')]:
-    m = json.load(open(os.path.join(ROOT,'js','bank',manifest), encoding='utf-8'))
-    n = len(load_concat(files))
-    check(f'{prefix} manifest题数一致', m['total'] == n, f'{m["total"]}/{n}')
-    check(f'{prefix} manifest分片数一致', len(m['chunks']) == len(files), f"{len(m['chunks'])}/{len(files)}")
-    check(f'{prefix} manifest含内容指纹', m.get('version') == 4 and bool(re.fullmatch(r'[0-9a-f]{16}', m.get('build',''))), str({k:m.get(k) for k in ('version','build')}))
+# manifest 与文件一致（模拟题已全部移除，只剩真题 manifest）
+zt_files = [os.path.join(ROOT, 'js', f) for f in ['questions5.js', 'questions7.js', 'questions8.js']]
+m = json.load(open(os.path.join(ROOT, 'js', 'bank', 'questions-zhenti-manifest.json'), encoding='utf-8'))
+n = len(load_concat(zt_files))
+check('真题 manifest题数一致', m['total'] == n, f'{m["total"]}/{n}')
+check('真题 manifest分片数一致', len(m['chunks']) == len(zt_files), f"{len(m['chunks'])}/{len(zt_files)}")
+# 该 manifest 不写 build，靠 file:bytes:count 自动指纹化，所以这三个字段必须齐
+check('真题 manifest分片字段完整',
+      all(c.get('file') and c.get('bytes') and c.get('count') for c in m['chunks']),
+      str(m['chunks'][:1]))
 
 print(f'==== v2.1质量验收：通过 {20-len(FAIL)}/20，失败 {FAIL or "无"} ====')
 raise SystemExit(1 if FAIL else 0)

@@ -66,14 +66,14 @@ with sync_playwright() as p:
             check(
                 "桌面一级导航顺序",
                 nav_order
-                == ["学堂首页", "行测研习", "申论书房", "修业成长", "问泽", "我的书斋"],
+                == ["首页", "行测", "申论", "成长", "问泽", "我的"],
                 str(nav_order),
             )
             page.locator('.nav-btn[data-view="shenlun"]').click()
             check("申论一级页可进入", page.get_by_text("申论内容正在重新整理").is_visible())
             page.get_by_role("button", name="查看页面骨架").first.click()
             check("申论二级页可进入", page.get_by_text("素材簿页面骨架已保留").is_visible())
-            page.get_by_label("返回申论书房").click()
+            page.get_by_label("返回申论").click()
             page.locator('.nav-btn[data-view="ai"]').click()
             check("问泽一级页可进入", page.get_by_text("问泽服务正在筹备").is_visible())
             page.screenshot(path=str(OUT / "zhize-fusion-ai-desktop.png"), full_page=True)
@@ -87,7 +87,7 @@ with sync_playwright() as p:
             page.screenshot(path=str(OUT / "zhize-fusion-question-ai-desktop.png"), full_page=True)
             page.locator('.nav-btn[data-view="profile"]').click()
             check("背景选择共十项", page.locator(".scene-choice").count() == 10)
-            page.get_by_role("button", name="烟水").click()
+            page.get_by_role("button", name="蜜桃").click()
             check("背景切换即时生效", page.locator("body").get_attribute("data-scene") == "lake")
             page.get_by_label("切换点击涟漪").click()
             page.wait_for_timeout(700)

@@ -9,7 +9,9 @@
   --r:14px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow-x:hidden;max-width:100%}
+/* 注意：不能用 height:100% —— 会把文档高度锁死在视口高，内容溢出后手机页面滚不动 */
+html{overflow-x:hidden;max-width:100%}
+body{min-height:100%;overflow-x:hidden;max-width:100%}
 img{max-width:100%}
 body{font-family:"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
@@ -400,3 +402,14 @@ html[data-scene="none"] body{background-image:none}
   .page-heading h1{font-size:26px}.academy-grid{grid-template-columns:1fr}.feature-card,.tool-card{min-height:auto}.practice-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.practice-tools .tool-card{padding:12px}.practice-tools .tool-card>span{width:32px;height:32px;font-size:14px}.practice-tools .tool-card h3{font-size:12px}.practice-tools .btn{padding:8px 5px;font-size:11px}.scene-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:360px){.main-shell .view{padding-inline:12px}.mobile-brand span{font-size:14px}.sidebar .tab{font-size:9px}.scene-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---- 图标系统（js/icons.js）：替代原 emoji ---- */
+.ico{width:1.15em;height:1.15em;flex:none;vertical-align:-.17em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.ico.lg{width:1.5em;height:1.5em;vertical-align:-.28em}
+.num{font-family:ui-monospace,"SF Mono",monospace;font-variant-numeric:tabular-nums}
+/* ---- 生成的插画素材 ---- */
+.brand-logo img{width:100%;height:100%;object-fit:contain}
+.mark-img{width:38px;height:38px;object-fit:contain}
+.grid-btns .gb .gi img{width:26px;height:26px;object-fit:contain}
+.mod-ico{width:24px;height:24px;object-fit:contain;vertical-align:middle}
+.q-tag .mod-ico{width:20px;height:20px}

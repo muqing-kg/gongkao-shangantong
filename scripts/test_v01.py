@@ -16,12 +16,12 @@ def check(name, cond, extra=''):
 import subprocess
 node_check = r"""
 const fs=require('fs');
-const src=fs.readFileSync('js/questions.js','utf8')+fs.readFileSync('js/questions2.js','utf8')+fs.readFileSync('js/questions3.js','utf8')+'\nconsole.log(JSON.stringify({mods:Object.fromEntries(Object.entries(QUESTION_BANK).map(([k,v])=>[k,v.length])),bad:[]}));';
+const src=fs.readFileSync('js/questions.js','utf8')+'\nconsole.log(JSON.stringify({mods:Object.fromEntries(Object.entries(QUESTION_BANK).map(([k,v])=>[k,v.length])),bad:[]}));';
 """
 # 用 node 直接执行拼接源码，检查语法 + 统计
 import glob
 js_src = ''
-base_files = ['js/questions.js','js/questions2.js','js/questions3.js','js/questions4.js','js/questions5.js','js/questions7.js','js/questions8.js']
+base_files = ['js/questions.js','js/questions5.js','js/questions7.js','js/questions8.js']
 chunk_files = sorted(glob.glob(os.path.join(ROOT,'js','bank','questions6_*.js'))) + sorted(glob.glob(os.path.join(ROOT,'js','bank','questions9_*.js')))
 for f in base_files:
     js_src += open(os.path.join(ROOT,f), encoding='utf-8').read() + '\n'
@@ -44,7 +44,8 @@ import tempfile
 js_tmp = os.path.join(tempfile.gettempdir(), 'gongkao_check.js')
 with open(js_tmp, 'w', encoding='utf-8') as f:
     f.write(js_src)
-r = subprocess.run(['node', js_tmp], capture_output=True, text=True, cwd=ROOT)
+r = subprocess.run(['node', js_tmp], capture_output=True, text=True,
+                   encoding='utf-8', errors='replace', cwd=ROOT)
 try: os.remove(js_tmp)
 except: pass
 m = re.search(r'__REPORT__(\{.*\})', r.stdout)
@@ -54,7 +55,7 @@ if r.returncode != 0:
 else:
     check('JS 语法/加载', True)
     report = json.loads(m.group(1))
-    expected = {'政治理论':2077,'常识判断':17773,'言语理解':14282,'数量关系':4820,'判断推理':11477,'资料分析':8639}
+    expected = {'政治理论':465,'常识判断':4182,'言语理解':2607,'数量关系':983,'判断推理':2980,'资料分析':1691}
     for k,v in expected.items():
         check(f'题库-{k} 数量={v}', report['mods'].get(k)==v, f"实际{report['mods'].get(k)}")
     check('题库-字段完整性', len(report['bad'])==0, f"异常题: {report['bad'][:5]}")
@@ -69,6 +70,9 @@ with sync_playwright() as p:
     page.on('console', lambda m: errors.append(f'console[{m.type}]: {m.text}') if m.type=='error' else None)
     page.on('pageerror', lambda e: errors.append(f'pageerror: {e}'))
     page.goto(URL, wait_until='networkidle')
+    # 题库加载完成时若停在首页会自动 renderDash()，会覆盖直接渲染的视图；先等题库就绪以消除该竞态
+    page.wait_for_function(
+        "() => window.LAZY_BANK_STATUS && window.LAZY_BANK_STATUS.loaded", timeout=120000)
     # v2：questions6 为懒加载；后续全库断言前显式等待完整题库
     page.evaluate("ensureFullBank()")
     time.sleep(0.3)
@@ -137,7 +141,10 @@ with sync_playwright() as p:
     # 答 2 题（第1题选A，即下标0；答完点"下一题"进入第2题）
     page.click('.q-opt >> nth=0')
     time.sleep(0.3)
-    check('答题-解析显示', page.locator('.q-analy').count()==1)
+    # 用 .original-analysis 精确定位解析框：材料框也用 .q-analy，数它会受题目是否带材料影响
+    _qa = page.locator('.original-analysis').count()
+    check('答题-解析显示', _qa == 1,
+          f"count={_qa} multi={page.evaluate('() => !!Q.list[Q.idx].multi')}")
     page.locator('#footNext').click()
     time.sleep(0.3)
     check('答题-进度2/10', '2/10' in page.locator('#quizProgress').text_content())

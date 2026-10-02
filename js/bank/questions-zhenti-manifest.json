@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "note": "国考/省考/选调真题库。原为 index.html 同步加载的 questions5/7/8.js（约 28.9MB，阻塞首屏），v2.5 起并入 lazy-bank 懒加载与 IndexedDB 持久缓存。无 build 字段时签名由 chunks 的 file:bytes:count 自动指纹化，文件内容变化即自动失效缓存。",
+  "total": 12908,
+  "chunks": [
+    {
+      "file": "js/questions5.js",
+      "count": 3201,
+      "bytes": 7932558
+    },
+    {
+      "file": "js/questions7.js",
+      "count": 3295,
+      "bytes": 7334343
+    },
+    {
+      "file": "js/questions8.js",
+      "count": 6412,
+      "bytes": 13626365
+    }
+  ]
+}

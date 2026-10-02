@@ -108,7 +108,7 @@ with sync_playwright() as p:
         check("关闭答题层停止并清理语音识别", speech["quizClosed"] == {"stops": 1, "remaining": 0}, str(speech))
         check("交卷进入结果页停止并清理语音识别", speech["quizFinished"] == {"stops": 1, "remaining": 0}, str(speech))
         check("语音权限拒绝给出明确提示", "权限" in speech["denied"], str(speech))
-        check("隐私文案区分问泽传输与浏览器语音处理", "不会发送给问泽" in speech["privacy"] and "浏览器" in speech["privacy"] and "权限" in speech["privacy"], str(speech))
+        check("隐私文案说明问泽发送范围与浏览器语音处理", "发送给你自己配置的接口" in speech["privacy"] and "浏览器" in speech["privacy"] and "权限" in speech["privacy"], str(speech))
 
     if CASE in ("all", "navigation"):
         navigation = page.evaluate("""async () => {

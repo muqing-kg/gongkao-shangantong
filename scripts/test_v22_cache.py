@@ -28,7 +28,7 @@ with sync_playwright() as p:
     def fail_once(route):
         flaky['requests']+=1
         route.abort('failed') if flaky['requests']==1 else route.continue_()
-    page.route('**/js/bank/questions6_001.js', fail_once)
+    page.route('**/js/questions5.js', fail_once)
     page.goto(URL,wait_until='domcontentloaded',timeout=60000)
     page.evaluate('() => ensureFullBank()')
     first=wait_loaded(page)
@@ -36,8 +36,8 @@ with sync_playwright() as p:
     check('首次从网络分片加载',first['source']=='network',str(first))
     check('瞬时分片失败自动重试成功',first.get('retries')==1 and flaky['requests']==2,str({'status':first.get('retries'),'requests':flaky['requests']}))
     check('普通设备采用6路并发',first.get('parallel')==6,str(first.get('parallel')))
-    check('首次完整题量59068',page.evaluate('() => allQuestions().length')==59068)
-    check('manifest带内容指纹',bool(first.get('signature')) and 'q6:' in first['signature'])
+    check('首次完整题量12908',page.evaluate('() => allQuestions().length')==12908)
+    check('manifest带内容指纹',bool(first.get('signature')) and 'zt:' in first['signature'], str(first.get('signature'))[:60])
 
     end=time.time()+180
     while time.time()<end:
@@ -51,15 +51,15 @@ with sync_playwright() as p:
       r.onsuccess=()=>{const db=r.result,q=db.transaction('parts').objectStore('parts').get('meta');q.onsuccess=()=>{const v=q.result;db.close();resolve(v)};q.onerror=()=>{db.close();reject(q.error)}};
       r.onerror=()=>reject(r.error);
     })''')
-    check('缓存元数据题量正确',meta and meta.get('total')==45113,str(meta and {'parts':len(meta.get('parts',[])), 'total':meta.get('total')}))
+    check('缓存元数据题量正确',meta and meta.get('total')==12908,str(meta and {'parts':len(meta.get('parts',[])), 'total':meta.get('total')}))
 
     page.reload(wait_until='domcontentloaded',timeout=60000)
     page.evaluate('() => ensureFullBank()')
     second=wait_loaded(page)
     second_ms=second['loadedAt']-second['startedAt']
     check('刷新命中IndexedDB缓存',second.get('cacheHit') and second.get('source')=='indexeddb',str(second))
-    check('缓存恢复题量无重复',page.evaluate('() => allQuestions().length')==59068)
-    check('缓存恢复分片进度完成',second['loadedChunks']==second['totalChunks']==52,str(second))
+    check('缓存恢复题量无重复',page.evaluate('() => allQuestions().length')==12908)
+    check('缓存恢复分片进度完成',second['loadedChunks']==second['totalChunks']==3,str(second))
     check('缓存恢复速度快于首次',second_ms < first_ms,f'首次{first_ms}ms / 缓存{second_ms}ms')
     check('加载进度组件存在',page.locator('#bankProgress').count()==1)
 
@@ -75,7 +75,7 @@ with sync_playwright() as p:
     page.evaluate('() => ensureFullBank()')
     stale=wait_loaded(page)
     check('版本变化自动回退网络',stale.get('source')=='network' and not stale.get('cacheHit'),str(stale))
-    check('缓存失效回退无重复题',page.evaluate('() => allQuestions().length')==59068)
+    check('缓存失效回退无重复题',page.evaluate('() => allQuestions().length')==12908)
 
     end=time.time()+180
     while time.time()<end:
@@ -88,11 +88,12 @@ with sync_playwright() as p:
     check('一键清理移除题库缓存',cleared)
     check('清理缓存不影响个人localStorage',page.evaluate("() => localStorage.getItem('__cache_clear_guard')==='keep'"))
 
-    # 最后一批仍在途时清理：旧 load 必须取消、回滚且不能在清理后提交 loaded/持久化。
+    # 分片仍在途时清理：旧 load 必须取消、回滚且不能在清理后提交 loaded/持久化。
+    # 模拟题已移除，现在只剩真题三份（q5/q7/q8），一个批次全部在途，挂住任一份即可。
     held={}
     def hold_last_batch(route):
         held['route']=route
-    page.route('**/js/bank/questions9_013.js', hold_last_batch)
+    page.route('**/js/questions8.js', hold_last_batch)
     page.add_init_script('window.requestIdleCallback=()=>0')
     page.reload(wait_until='domcontentloaded',timeout=60000)
     page.evaluate('''() => {
@@ -114,19 +115,19 @@ with sync_playwright() as p:
       });
     }''')
     if 'route' in held: held['route'].continue_()
-    page.unroute('**/js/bank/questions9_013.js', hold_last_batch)
+    page.unroute('**/js/questions8.js', hold_last_batch)
     end=time.time()+180
     while time.time()<end:
         race=page.evaluate('() => ({load:__raceLoad,clear:__raceClear,status:{...LAZY_BANK_STATUS},events:[...__raceEvents]})')
         if race['load']['settled'] and race['clear']['settled']: break
         page.wait_for_timeout(50)
     check('清理取消旧load且不提交loaded',race['load']['settled'] and not race['load']['ok'] and not race['status']['loaded'] and 'loaded' not in race['events'],str(race))
-    check('取消load已回滚尾批数据',page.evaluate('() => allQuestions().length')==13955)
+    check('取消load已回滚尾批数据',page.evaluate('() => allQuestions().length')==0)
     race_db_absent=page.evaluate("() => indexedDB.databases().then(ds => !ds.some(d => d.name==='shangantong-bank'))")
     check('取消load未在清理后持久化',race['clear']['settled'] and not race['clear']['error'] and not race['status']['cacheStored'] and race_db_absent,str(race))
     page.evaluate('() => ensureFullBank()')
     race_recovered=wait_loaded(page)
-    check('清理取消后同页重试成功',race_recovered.get('loaded') and race_recovered.get('source')=='network' and page.evaluate('() => allQuestions().length')==59068,str(race_recovered))
+    check('清理取消后同页重试成功',race_recovered.get('loaded') and race_recovered.get('source')=='network' and page.evaluate('() => allQuestions().length')==12908,str(race_recovered))
 
     end=time.time()+180
     while time.time()<end:
@@ -178,16 +179,16 @@ with sync_playwright() as p:
     check('restore取消不触发损坏缓存清理',not restore_race['load']['ok'] and not restore_race['race']['clearError'] and restore_race['race']['idbClearCalls']==0 and restore_db_absent,str(restore_race))
 
     # 永久分片失败时必须回滚本次已追加数据；网络恢复后同页重试可完整加载且不重复。
-    page.route('**/js/bank/questions6_002.js', lambda route: route.abort('failed'))
+    page.route('**/js/questions7.js', lambda route: route.abort('failed'))
     page.reload(wait_until='domcontentloaded',timeout=60000)
     page.evaluate('() => ensureFullBank().catch(() => null)')
     failed=wait_loaded(page)
-    check('永久分片失败后回滚本批追加',not failed.get('loaded') and page.evaluate('() => allQuestions().length')==13955,str(failed))
-    page.unroute('**/js/bank/questions6_002.js')
+    check('永久分片失败后回滚本批追加',not failed.get('loaded') and page.evaluate('() => allQuestions().length')==0,str(failed))
+    page.unroute('**/js/questions7.js')
     page.evaluate('() => ensureFullBank()')
     recovered=wait_loaded(page)
     check('网络恢复后同页可重试成功',recovered.get('loaded') and recovered.get('source')=='network',str(recovered))
-    check('失败重试后题量无重复',page.evaluate('() => allQuestions().length')==59068)
+    check('失败重试后题量无重复',page.evaluate('() => allQuestions().length')==12908)
     check('无JS运行错误',not errors,str(errors[:3]))
     print(f'PERF first={first_ms}ms cached={second_ms}ms speedup={first_ms/max(second_ms,1):.1f}x')
     browser.close()

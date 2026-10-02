@@ -106,23 +106,27 @@
     });
   }
 
+  // 题库清单：按此顺序拼接。真题三份是大文件（7~14MB），排在最前与后续小分片共用并发窗口。
+  // 模拟题已于 v2.19 全部移除，故只剩真题一份；将来加题库在这里加一条即可。
+  const MANIFESTS=[
+    {url:'js/bank/questions-zhenti-manifest.json', key:'zt'}
+  ];
   async function fetchManifests(generation){
-    const [r1, r2] = await Promise.all([
-      fetch('js/bank/questions6-manifest.json', {cache:'no-cache'}),
-      fetch('js/bank/questions9-manifest.json', {cache:'no-cache'})
-    ]);
+    const res = await Promise.all(MANIFESTS.map(async m=>{
+      try{
+        const r = await fetch(m.url, {cache:'no-cache'});
+        if(!r.ok) return null;
+        const j = await r.json();
+        return (Array.isArray(j.chunks) && j.chunks.length) ? {key:m.key, man:j} : null;
+      }catch(_){ return null; }
+    }));
     assertGeneration(generation);
-    if(!r1.ok) throw new Error(`题库 q6 manifest HTTP ${r1.status}`);
-    if(!r2.ok) throw new Error(`题库 q9 manifest HTTP ${r2.status}`);
-    const [m1, m2] = await Promise.all([r1.json(), r2.json()]);
-    assertGeneration(generation);
-    if(!Array.isArray(m1.chunks)||!m1.chunks.length||!Array.isArray(m2.chunks)||!m2.chunks.length){
-      throw new Error('题库 manifest 内容不完整');
-    }
-    const chunks = [...m1.chunks, ...m2.chunks];
-    const total = (m1.total||0) + (m2.total||0);
+    const alive = res.filter(Boolean);
+    if(!alive.length) throw new Error('题库 manifest 不可用，请检查网络后重试');
+    const chunks = alive.flatMap(a=>a.man.chunks);
+    const total = alive.reduce((s,a)=>s+(a.man.total||0),0);
     const fallback = m => (m.chunks||[]).map(x=>`${x.file}:${x.bytes}:${x.count}`).join(',');
-    const signature = `q6:${m1.build||fallback(m1)}|q9:${m2.build||fallback(m2)}`;
+    const signature = alive.map(a=>`${a.key}:${a.man.build||fallback(a.man)}`).join('|');
     return {chunks, total, signature};
   }
 

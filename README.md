@@ -2,9 +2,9 @@
 
 > 公务员考试学习与成长平台：行测研习、申论书房、智能组卷、错题温习、能力画像与问泽学习助手。
 >
-> 当前版本：**v2.4.0** · 纯前端 · 学习数据保存在浏览器本地
+> 当前版本：**v2.20.0** · 纯前端 · 学习数据保存在浏览器本地
 
-![GitHub](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-Web%2FMobile-lightgrey) ![Questions](https://img.shields.io/badge/questions-59%2C068-1c3f60)
+![GitHub](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-Web%2FMobile-lightgrey) ![Questions](https://img.shields.io/badge/questions-12%2C908-1c3f60)
 
 ## 在线使用
 
@@ -14,16 +14,18 @@
 
 ## 当前题库基线
 
-共 **59,068 道去重题目**，精确重复题为 0；其中 **37,204 道题聚合了多个来源**，可显示年份、考试、地区/卷别和原卷题号。
+共 **12,908 道题，全部是真题**，精确重复题为 0；其中 **3,249 道题聚合了多个来源**，可显示年份、考试、地区/卷别和原卷题号。
+
+**题库只收真题，不含模拟题、原创题与开源练习题**：国考 2008–2026、省考 2020–2026、选调 2013–2025。
 
 | 模块 | 题量 |
 |---|---:|
-| 政治理论 | 2,077 |
-| 常识判断 | 17,773 |
-| 言语理解 | 14,282 |
-| 数量关系 | 4,820 |
-| 判断推理 | 11,477 |
-| 资料分析 | 8,639 |
+| 政治理论 | 465 |
+| 常识判断 | 4,182 |
+| 言语理解 | 2,607 |
+| 数量关系 | 983 |
+| 判断推理 | 2,980 |
+| 资料分析 | 1,691 |
 
 > 题库后续计划由独立规范题库「行测万卷」通过统一数据契约接入，本仓库不再长期维护多套并行转换逻辑。
 
@@ -39,10 +41,20 @@
 | ⏱️ **在线模考** | 自定义题量与时长、自动交卷、成绩单与逐题回顾 |
 | ❌ **错题与复习** | 答错自动收录；按 1/2/4/7/15 天安排复习，可标记掌握 |
 | 📊 **能力画像** | 模块、考点、难度、来源和用时维度分析，生成薄弱点训练 |
-| 📖 **申论积累** | 金句、热点、案例、框架、模板；支持搜索、收藏和自定义素材 |
+| ⏱️ **配速诊断** | 按模块给出平均用时与正确率，划分优势区/潜力区/稳但慢/时间黑洞，点名该放弃的部分 |
+| 🧭 **错因标注** | 逐题回顾时给错题标「不会／来不及／粗心／蒙的」，生成失分结构并给出对应对策 |
+| 🤖 **AI 学情诊断** | 自带 AI 接入（OpenAI 兼容，任意第三方接口，模型可从接口拉取选择）；把模块表现、配速、错因数据交给 AI 读一遍，给出两周行动建议。Key 只存本机、不随备份导出，只发统计数据不发题目 |
+| 🗂️ **AI 排计划** | 用同一份学情数据让 AI 排出未来 7 天每天练什么、练多少、练多久；结果落盘，刷新不丢 |
+| ✦ **问泽（已接通）** | 逐题讲解会把题干、选项、你的答案与**题库原始解析**一起交给 AI，system 里写死「题库解析是唯一权威答案，不许自行判断」；首页/问泽页的通用问答则被约束为不给题目答案 |
+| 📄 **申论真题** | 国考申论真题 2022–2025（副省／地市／行政执法）12 份卷 59 题，含 8.8 万字给定材料与参考答案、评分要点；材料与答案默认收起，先做后看 |
+| ✍️ **申论练笔** | 自己贴题目与作文，AI 按「立意／结构／论证／语言」四维度批改：每维度先引用原文为证，**不给分数**；练笔记录随备份保存 |
+| 🎯 **AI 预判错因** | 错题上点「让 AI 猜一下」，AI 结合选项、用时与解析给出错因建议，你确认或改掉 |
+| 🔑 **配置搬运** | 在一台设备配好 AI，点「复制我的配置」得到一段文本，对方粘贴导入即可，不用手敲地址与 Key |
+| 🗓️ **学习计划** | 设定目标考试、考试日期与每日题量；倒计时、今日进度与本周达标全部由打卡数据推导，不存过期任务 |
+| 📖 **申论积累** | 55 条内置素材：名言金句 5、时政热点 10（附官方来源）、案例素材 5、写作框架 17、应用文模板 18；支持搜索、收藏和自定义素材 |
 | 🔥 **学习辅助** | 打卡热力图、连续学习、番茄钟、本地 JSON 备份/恢复 |
+| 🧭 **新手引导** | 零数据时首页给出「三步开始」；有数据却从未备份或超 14 天没备份时主动提醒导出 |
 | ⚡ **题库缓存** | 分片并发加载、失败重试、版本指纹失效、IndexedDB 持久缓存 |
-| ✦ **问泽入口** | 首页及每道题原始解析下方均可文字或语音提问；服务未接入时不发送数据、不伪造回答 |
 | 🏞️ **书斋环境** | 八套淡墨背景、素宣与无背景；点击涟漪可关闭并尊重系统减少动态效果设置 |
 
 ## 快速开始
@@ -74,8 +86,11 @@ gongkao-shangantong/
 ├── js/
 │   ├── app.js                 # 答题、组卷、画像、回填、打印等应用逻辑
 │   ├── lazy-bank.js           # 题库分片加载、重试与 IndexedDB 缓存
-│   ├── questions*.js          # 首屏基础题库与历史数据分片
-│   ├── bank/                  # questions6/questions9 manifest 与 52 个分片
+│   ├── ai.js                  # AI 接入层（OpenAI 兼容，配置存独立 localStorage）
+│   ├── questions.js           # 六个模块的空结构（MODS 依赖这些键，勿删）
+│   ├── questions5/7/8.js      # 国考/省考/选调真题库（懒加载，12,908 题）
+│   ├── bank/                  # questions6 / questions9 / questions-zhenti 三份 manifest 与 55 个分片
+│   ├── bank/shenlun-papers.js # 国考申论真题（607KB，进页面时才按需加载）
 │   └── shenlun.js             # 申论素材
 ├── scripts/
 │   ├── test_v01.py            # 全流程回归
@@ -84,7 +99,21 @@ gongkao-shangantong/
 │   ├── test_v22_cache.py      # 缓存、失败回滚、重试与并发验收
 │   ├── test_v23_regressions.py# 功能、安全与可访问性回归
 │   ├── test_v24_zhize_ui.py   # 品牌壳、导航、偏好与移动端回归
-│   └── test_v24_zhize_features.py # 问泽、一级页面与逐题入口回归
+│   ├── test_v24_zhize_features.py # 问泽、一级页面与逐题入口回归
+│   ├── test_v25_firstpaint.py # 首屏体积预算、懒加载题库完整性与缓存命中
+│   ├── test_v26_plan.py       # 学习计划目标持久化、进度推导与备份往返
+│   ├── test_v28_pace.py       # 配速诊断四象限判定、边界与页面渲染
+│   ├── test_v29_why.py        # 错因标注写入/取消、失分结构与数据边界
+│   ├── test_v210_ai.py        # AI 请求格式、发送内容边界、错误处理与 Key 隔离
+│   ├── test_v211_ask.py       # 问泽两种上下文的 prompt 边界与渲染
+│   ├── test_v212_essay.py     # 申论批改的分数禁令、引用为证、记录与边界
+│   ├── test_v213_guide.py     # 新手引导与备份提醒的触发条件与往返
+│   ├── test_v214_shenlun.py   # 申论真题的按需加载、先做后看与 AI 批改衔接
+│   ├── test_v217_md.py        # AI 输出的 Markdown 渲染与 XSS 转义
+│   ├── import_shenlun.js      # 国考申论真题导入器（从公开仓库转换）
+│   ├── localize_images.py     # 外部图片本地化（下载+改写+重算指纹）
+│   ├── dedupe_bank.py         # 题库精确去重并合并多来源
+│   └── prune_broken_images.py # 删除引用了缺失图片的题
 ├── assets/backgrounds/        # 本地 WebP 淡墨背景资产
 └── sketches/                  # 历史设计探索与融合原型
 ```
@@ -128,6 +157,16 @@ SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v23_regression
 SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v01.py
 SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v24_zhize_ui.py
 SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v24_zhize_features.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v25_firstpaint.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v26_plan.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v28_pace.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v29_why.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v210_ai.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v211_ask.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v212_essay.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v213_guide.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v214_shenlun.py
+SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_v217_md.py
 SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/test_review_blockers.py
 SAT_TEST_URL=http://127.0.0.1:8080/index.html python scripts/verify_zhize_production.py
 ```
