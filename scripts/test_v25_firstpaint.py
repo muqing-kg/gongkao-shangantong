@@ -21,6 +21,7 @@ CHROME = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
 # 题库只收真题后，首屏只剩「六个模块的空结构」这一个数据脚本。
 FIRST_PAINT_ALLOWED = {
     'questions.js', 'icons.js', 'lazy-bank.js', 'shenlun.js', 'ai.js', 'app.js',    'sync.js',
+    'easter.js',
 }
 FIRST_PAINT_BUDGET_MB = 1.5
 BASE_QUESTIONS = 0

@@ -78,3 +78,21 @@
   .card>.md-body{padding:14px 14px}
   .question-ask .ask-answer{padding:0 13px 14px}
 }
+
+
+/* ==========================================================================
+   彩蛋浮层（连点船头 / 深夜问候 / 输入 zhou / 长按徽章）
+   ========================================================================== */
+.egg-note{
+  position:fixed;left:50%;bottom:38px;z-index:950;transform:translate(-50%,14px);
+  background:linear-gradient(145deg,#FFFCF6,#FDF3E8);
+  border:1px solid var(--line);border-left:4px solid var(--clay);
+  border-radius:4px 16px 16px 4px;padding:14px 20px;
+  box-shadow:0 14px 40px rgba(147,107,86,.2);
+  opacity:0;transition:opacity .35s ease,transform .35s ease;pointer-events:none;
+  text-align:left;max-width:min(86vw,340px);
+}
+.egg-note.on{opacity:1;transform:translate(-50%,0)}
+.egg-note b{display:block;font-family:"STKaiti","KaiTi",serif;font-size:17px;color:var(--clay);letter-spacing:.06em;margin-bottom:3px}
+.egg-note span{display:block;font-size:13px;color:var(--ink-2);line-height:1.7}
+@media(max-width:767px){.egg-note{bottom:calc(84px + env(safe-area-inset-bottom))}}

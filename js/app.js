@@ -1366,7 +1366,7 @@ let __paperCfg = null;
 function renderCustomQuiz(){
   $('#view').innerHTML=`
   <div class="card"><h3><span class="dot"></span> 自定义组卷</h3>
-    <div class="muted mb10">按各地国省考卷种结构智能组卷（同舟共济特色）——可选完整套卷或小卷子，在线答题或导出打印</div>
+    <div class="muted mb10">按各地国省考卷种结构智能组卷（加油吧，媳妇儿）——可选完整套卷或小卷子，在线答题或导出打印</div>
     <div class="field"><label>卷种模板（自动填充各模块题量，可改）</label>
       <select id="pcType" onchange="applyPaperCfg()">
         ${Object.keys(PAPER_CONFIGS).map(k=>`<option value="${k}">${k}（${PAPER_CONFIGS[k].total}题/${PAPER_CONFIGS[k].time}分钟）</option>`).join('')}
@@ -1786,7 +1786,7 @@ function renderExamConfig(){
       <button class="ec" onclick="renderExamCustom()"><b>自定义</b><span>自选题量/时间</span></button>
     </div>
     <div class="btn-row">
-      <button class="btn gold" onclick="renderCustomQuiz()"> 卷种定制组卷（同舟共济特色）</button>
+      <button class="btn gold" onclick="renderCustomQuiz()"> 卷种定制组卷（加油吧，媳妇儿）</button>
     </div>
   </div>
   <div class="card"><h3><span class="dot"></span>考场技巧</h3><div class="muted">
