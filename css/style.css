@@ -605,3 +605,55 @@ body{overflow-x:hidden;overflow-x:clip}
 /* 移动端底栏图标 */
 .tabbar .tab .tab-ico{width:22px;height:22px;display:block;margin:0 auto 3px;fill:none;
   stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ==========================================================================
+   侧栏导航：做成真正的按钮（图标 + 文字贴在一起，圆角、悬停、选中态）
+   之前 ::before 汉字图标改成真 SVG 后，布局被别的规则推歪了，这里强制锁死。
+   ========================================================================== */
+.sidebar .tab{
+  display:flex!important;flex-direction:row!important;align-items:center!important;
+  justify-content:flex-start!important;gap:12px!important;
+  min-height:46px;padding:11px 14px!important;margin:2px 0;
+  border:0!important;border-radius:12px!important;
+  color:var(--ink-2)!important;font-size:14.5px!important;text-align:left!important;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .12s ease;
+}
+.sidebar .tab>*{flex:0 0 auto}
+.sidebar .tab .tab-ico{margin:0!important;width:22px!important;height:22px!important}
+/* 悬停：淡陶土底 */
+.sidebar .tab:hover{
+  background:rgba(192,132,104,.13)!important;color:#5C4326!important;
+}
+/* 选中：陶土渐变实心 + 轻微上浮，一眼看出在哪一页 */
+.sidebar .tab.active{
+  background:linear-gradient(145deg,var(--clay-2),var(--clay))!important;
+  color:#fff!important;box-shadow:0 6px 16px rgba(192,132,104,.28)!important;
+}
+.sidebar .tab.active .tab-ico{stroke:#fff!important}
+.sidebar .tab.active::after{display:none!important}
+/* 上岸小助手：不再单独加框，和其他项一致 */
+.sidebar .ask-tab{margin-top:6px!important;border:0!important;background:none!important;box-shadow:none!important}
+/* 平板窄栏（768-1100px）：只留图标，居中 */
+@media(max-width:1100px) and (min-width:768px){
+  .sidebar .tab{justify-content:center!important;padding:12px!important;gap:0!important;font-size:0!important}
+  .sidebar .tab .tab-ico{width:23px!important;height:23px!important}
+}
+/* 手机底栏 */
+@media(max-width:767px){
+  .tabbar .tab{
+    display:flex!important;flex-direction:column!important;align-items:center!important;
+    justify-content:center!important;gap:3px!important;
+    min-height:60px;padding:6px 2px!important;border-radius:10px!important;font-size:10.5px!important;
+  }
+  .tabbar .tab .tab-ico{width:21px!important;height:21px!important;margin:0!important}
+  .tabbar .tab.active{background:rgba(192,132,104,.16)!important;color:var(--clay)!important;box-shadow:none!important}
+  .tabbar .tab.active .tab-ico{stroke:var(--clay)!important}
+}
+/* 修正：360px 下 v2.4 的字号规则是 9px，别覆盖；底栏只留 5 项（助手在顶栏） */
+@media(max-width:767px){
+  .tabbar .tab{font-size:inherit!important}
+  .tabbar .ask-tab{display:none!important}
+}
+@media(max-width:400px){
+  .tabbar .tab{font-size:9px!important}
+}
