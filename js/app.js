@@ -933,15 +933,7 @@ function renderAi(){
   $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>有依据地解释，有边界地建议</h1><p>问学于泽，明理而行。它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<div class="notice">要问<b>具体某道题</b>，在答题页答完后、或逐题回顾里，题目下方会出现输入框——那里会带上题干、选项与题库原始解析。这一页适合问备考方法。</div>`;
 }
 const UI_SCENE_OPTIONS=[['mountains','远山'],['lake','烟水'],['bamboo','竹影'],['cloud','云水'],['plum','疏梅'],['bridge','柳桥'],['moon','月隐'],['lotus','清荷'],['paper','素宣'],['none','无背景']];
-function renderProfile(){
-  $('#view').innerHTML=`<header class="page-heading"><span>我的书斋</span><h1>学习数据，由你掌握</h1><p>数据、题库、显示偏好和隐私说明集中在这里。</p></header>
-    <div class="notice">学习记录留在当前浏览器。接入 AI 后，提问会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；首页与学情诊断发送的是统计（正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</div>
-  <section class="card display-settings"><div class="card-heading"><h3><span class="dot"></span>显示与无障碍</h3><span class="tag">即时生效</span></div><p class="muted mb10">选择一幅极淡古风背景；长题干和解析始终使用高不透明纸面保证可读。</p>
-    <div class="scene-grid">${UI_SCENE_OPTIONS.map(([id,name])=>`<button type="button" class="scene-choice ${uiPrefs.scene===id?'active':''}" aria-label="${name}" onclick="chooseUiScene('${id}',this)"><span class="scene-thumb scene-${id}"></span><span>${name}</span></button>`).join('')}</div>
-    <div class="list-row"><div><div class="l-title">点击涟漪</div><div class="l-sub">点击按钮时出现一次淡墨水纹；减少动态效果时自动停用。</div></div><button type="button" class="switch ${uiPrefs.ripple?'on':''}" aria-label="点击涟漪" aria-pressed="${uiPrefs.ripple?'true':'false'}" onclick="toggleUiRipple(this)"></button></div>
-    <div class="list-row"><div><div class="l-title">语音输入</div><div class="l-sub">首次点击时由浏览器请求权限；转写文字确认后才会发送。</div></div><span class="tag">按需授权</span></div>
-  </section>`;
-}
+function renderProfile(){ renderMore(); }
 function chooseUiScene(scene,button){ if(!setUiScene(scene)) return; $$('.scene-choice').forEach(x=>x.classList.toggle('active',x===button)); }
 function toggleUiRipple(button){ const enabled=setUiRipple(button.getAttribute('aria-pressed')!=='true'); button.setAttribute('aria-pressed',String(enabled)); button.classList.toggle('on',enabled); }
 
@@ -2186,6 +2178,7 @@ function renderMore(){
     <div class="btn-row"><button class="btn" onclick="clearBankCache()">清理题库缓存</button></div>
   </div>
   ${renderAiConfig()}
+  <div class="card"><div class="notice">学习记录留在当前浏览器。接入 AI 后，提问会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；首页与学情诊断发送的是统计（正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</div></div>
   <div class="card"><h3><span class="dot"></span>数据管理</h3>
     <div class="muted mb10" ${backupStatus().warn? 'style="color:var(--red)"':''}>${backupStatus().text}</div>
     <div class="btn-row">
@@ -2196,6 +2189,11 @@ function renderMore(){
     </div>
     <div class="muted mt8">数据保存在浏览器本地（localStorage），导出为 JSON 文件可随时恢复或迁移到其他设备。</div>
   </div>
+  <section class="card display-settings"><div class="card-heading"><h3><span class="dot"></span>显示与无障碍</h3><span class="tag">即时生效</span></div><p class="muted mb10">选择一幅极淡古风背景；长题干和解析始终使用高不透明纸面保证可读。</p>
+    <div class="scene-grid">${UI_SCENE_OPTIONS.map(([id,name])=>`<button type="button" class="scene-choice ${uiPrefs.scene===id?'active':''}" aria-label="${name}" onclick="chooseUiScene('${id}',this)"><span class="scene-thumb scene-${id}"></span><span>${name}</span></button>`).join('')}</div>
+    <div class="list-row"><div><div class="l-title">点击涟漪</div><div class="l-sub">点击按钮时出现一次淡墨水纹；减少动态效果时自动停用。</div></div><button type="button" class="switch ${uiPrefs.ripple?'on':''}" aria-label="点击涟漪" aria-pressed="${uiPrefs.ripple?'true':'false'}" onclick="toggleUiRipple(this)"></button></div>
+    <div class="list-row"><div><div class="l-title">语音输入</div><div class="l-sub">首次点击时由浏览器请求权限；转写文字确认后才会发送。</div></div><span class="tag">按需授权</span></div>
+  </section>
   <div class="card"><h3><span class="dot"></span>关于</h3>
     <div class="muted">同舟共济 v2.20.0 — 公务员考试学习与成长平台。纯前端、题库持久缓存、离线加速，学习数据默认保存在当前浏览器。</div>
   </div>`;

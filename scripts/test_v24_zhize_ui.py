@@ -29,7 +29,7 @@ with sync_playwright() as p:
     )
     check("品牌图标使用内联SVG而非单字占位", page.locator(".brand-logo svg").count() == 1)
 
-    expected = ["学堂首页", "行测研习", "申论书房", "修业成长", "上岸小助手", "我的书斋"]
+    expected = ["学堂首页", "行测研习", "申论书房", "修业成长", "上岸小助手", "设置"]
     labels = page.locator(".tabbar .tab").all_inner_texts()
     check("桌面一级导航顺序正确", labels == expected, str(labels))
     check("桌面一级导航六项均可见", page.locator(".tabbar .tab:visible").count() == 6)
@@ -71,7 +71,7 @@ with sync_playwright() as p:
         })"""
     )
     check("移动端使用固定底栏", mobile["position"] == "fixed", str(mobile))
-    check("移动端底栏保留五项且顶部提供问泽", mobile["visible"] == ["学堂首页", "行测研习", "申论书房", "修业成长", "我的书斋"] and mobile["askVisible"], str(mobile))
+    check("移动端底栏保留五项且顶部提供问泽", mobile["visible"] == ["学堂首页", "行测研习", "申论书房", "修业成长", "设置"] and mobile["askVisible"], str(mobile))
     check("390px 全局壳无横向溢出", mobile["overflow"], str(mobile))
     check("阶段1无JavaScript运行错误", not errors, str(errors[:5]))
     browser.close()
