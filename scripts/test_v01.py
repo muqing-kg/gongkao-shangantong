@@ -192,7 +192,6 @@ with sync_playwright() as p:
     # 更多页
     page.evaluate("switchTab('more')")
     time.sleep(0.3)
-    check('更多-打卡日历', page.locator('.cal-cell').count()>50, f"({page.locator('.cal-cell').count()})")
 
     # 模考配置
     page.evaluate("switchTab('exam')")

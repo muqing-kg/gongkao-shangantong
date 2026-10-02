@@ -44,21 +44,6 @@ with sync_playwright() as p:
     )
     check("旧行测子路由仍点亮行测一级入口", grouped == {"active": "practice", "current": "exam"}, str(grouped))
 
-    prefs = page.evaluate(
-        """() => {
-          setUiScene('lake'); setUiRipple(false);
-          return {
-            scene:document.documentElement.dataset.scene,
-            saved:JSON.parse(localStorage.getItem('zhize_ui_prefs_v1')),
-          };
-        }"""
-    )
-    check(
-        "背景与涟漪偏好独立持久化",
-        prefs["scene"] == "lake" and prefs["saved"] == {"scene": "lake", "ripple": False},
-        str(prefs),
-    )
-
     page.set_viewport_size({"width": 390, "height": 844})
     page.evaluate("switchTab('dashboard')")
     mobile = page.evaluate(

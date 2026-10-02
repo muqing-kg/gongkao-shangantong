@@ -357,19 +357,8 @@ body{background:linear-gradient(165deg,#eaf1f9 0%,#f4f7fa 45%,#edf3f9 100%)}
   --ink:#26383e;--ink-2:#66757a;--line:#e3d8c5;
   --bg:#f5f0e6;--card:rgba(255,253,248,.94);
   --shadow:0 8px 28px rgba(16,43,58,.07);--r:16px;
-  --scene:url('../assets/backgrounds/ink-mountains.webp');
 }
-html[data-scene="mountains"]{--scene:url('../assets/backgrounds/ink-mountains.webp')}
-html[data-scene="lake"]{--scene:url('../assets/backgrounds/misty-lake.webp')}
-html[data-scene="bamboo"]{--scene:url('../assets/backgrounds/bamboo-study.webp')}
-html[data-scene="cloud"]{--scene:url('../assets/backgrounds/cloud-ripples.webp')}
-html[data-scene="plum"]{--scene:url('../assets/backgrounds/plum-shadow.webp')}
-html[data-scene="bridge"]{--scene:url('../assets/backgrounds/willow-bridge.webp')}
-html[data-scene="moon"]{--scene:url('../assets/backgrounds/moon-clouds.webp')}
-html[data-scene="lotus"]{--scene:url('../assets/backgrounds/lotus-ripples.webp')}
-html[data-scene="paper"]{--scene:radial-gradient(circle at 25% 20%,rgba(181,138,75,.08),transparent 32%),linear-gradient(135deg,#faf7f0,#efe7d8)}
-body{background-color:var(--bg);background-image:linear-gradient(rgba(250,247,240,.88),rgba(250,247,240,.94)),var(--scene);background-size:cover;background-position:center;background-attachment:fixed;font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei","Segoe UI",sans-serif}
-html[data-scene="none"] body{background-image:none}
+body{background-color:var(--bg);background-image:linear-gradient(rgba(250,247,240,.88),rgba(250,247,240,.94));background-size:cover;background-position:center;background-attachment:fixed;font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei","Segoe UI",sans-serif}
 #app.app-shell{max-width:none;margin:0;min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr);animation:none}
 .sidebar{position:sticky;top:0;height:100vh;padding:24px 18px 20px;color:#f5eedf;background:linear-gradient(180deg,#0d2735,#17384c 62%,#244b5e);display:flex;flex-direction:column;z-index:61}
 .sidebar .brand{padding:0 8px 25px;gap:12px}.brand-logo{width:46px;height:46px;flex:0 0 46px;background:none;box-shadow:none}.brand-logo svg{display:block;width:100%;height:100%}.sidebar .brand-name{font-size:initial;text-shadow:none}.brand-name strong{display:block;color:#fff;font:700 20px/1.2 "STKaiti","KaiTi","Noto Serif SC",serif;letter-spacing:2px}.brand-name em{display:block;margin-top:4px;color:#d7cab3;font-size:10px;font-weight:400;letter-spacing:1px}
@@ -385,8 +374,6 @@ html[data-scene="none"] body{background-image:none}
 .original-analysis{border-left:4px solid #557d69;background:linear-gradient(180deg,#f4f7f1,#eef4ed)}.original-analysis b{color:#315b4b}.question-ask{margin-top:12px}.question-context{margin:0;padding:8px 12px;border:1px solid #ddcfb4;border-bottom:0;border-radius:10px 10px 0 0;color:#786544;background:#f2eadb;font-size:11px}.question-ask .ask-composer{margin:0;border-radius:0 0 14px 14px;box-shadow:none}.question-ask .ask-head h3{font-size:16px}
 .page-heading{margin:0 0 22px}.page-heading>span{color:#a64b3c;font-size:11px;font-weight:800;letter-spacing:2px}.page-heading h1{margin:5px 0 6px;color:var(--navy);font:700 30px/1.25 "STKaiti","KaiTi","Noto Serif SC",serif}.page-heading p{margin:0;color:var(--ink-2)}
 .academy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}.feature-card,.tool-card{display:flex;flex-direction:column;align-items:flex-start;min-height:190px}.feature-card h3,.tool-card h3{margin:8px 0 6px}.feature-card p{flex:1;margin:0 0 14px;color:var(--ink-2);font-size:13px}.feature-mark,.tool-card>span{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;color:var(--navy);background:#efe4cf;font:700 18px "STKaiti","KaiTi",serif}.feature-card .btn,.tool-card .btn{flex:none;width:auto}.practice-tools .tool-card{min-height:126px}.card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.card-heading h3{margin-bottom:0}
-.scene-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:12px 0 18px}.scene-choice{min-width:0;padding:7px;border:2px solid transparent;border-radius:11px;color:var(--navy);background:#f5eddf;font-size:12px}.scene-choice.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(181,138,75,.16)}.scene-thumb{display:block;height:58px;margin-bottom:5px;border-radius:7px;background-size:cover;background-position:center;background-color:#eee4d2}.scene-mountains{background-image:url('../assets/backgrounds/ink-mountains.webp')}.scene-lake{background-image:url('../assets/backgrounds/misty-lake.webp')}.scene-bamboo{background-image:url('../assets/backgrounds/bamboo-study.webp')}.scene-cloud{background-image:url('../assets/backgrounds/cloud-ripples.webp')}.scene-plum{background-image:url('../assets/backgrounds/plum-shadow.webp')}.scene-bridge{background-image:url('../assets/backgrounds/willow-bridge.webp')}.scene-moon{background-image:url('../assets/backgrounds/moon-clouds.webp')}.scene-lotus{background-image:url('../assets/backgrounds/lotus-ripples.webp')}.scene-paper{background-image:linear-gradient(135deg,#faf7f0,#e9deca)}.scene-none{background:#f1eadc}
-.ink-ripple{position:fixed;z-index:999;pointer-events:none;width:18px;height:18px;border:2px solid rgba(49,91,111,.24);border-radius:50%;transform:translate(-50%,-50%) scale(0);animation:inkRipple .55s ease-out forwards}@keyframes inkRipple{to{opacity:0;transform:translate(-50%,-50%) scale(5)}}
 
 @media(max-width:1100px) and (min-width:768px){
   #app.app-shell{grid-template-columns:82px minmax(0,1fr)}.sidebar{padding-inline:10px}.sidebar .brand{justify-content:center;padding-inline:0}.sidebar .brand-name,.sidebar-motto{display:none}.sidebar .tab{justify-content:center;padding:12px;font-size:0}.sidebar .tab::before{font-size:20px}.sidebar .ask-tab{margin-top:8px}
@@ -399,10 +386,8 @@ html[data-scene="none"] body{background-image:none}
   .main-shell .topbar{height:62px;padding:0 16px}.mobile-brand svg{display:block}.streak-badge{display:none}.top-ask{width:42px;height:40px;padding:0;font-size:0}.top-ask::after{content:"✦";font-size:17px}
   .main-shell .view{padding:20px 16px 48px}.hero{padding:20px 18px}.grid-btns{grid-template-columns:repeat(3,1fr)}
   .ask-head{display:block}.ask-head .tag{display:inline-block;margin-top:8px}.ask-row{grid-template-columns:44px minmax(0,1fr)}.ask-send{grid-column:2;min-height:42px}.ask-chips{display:grid;grid-template-columns:1fr 1fr}.ask-chip:last-child{grid-column:1/-1}
-  .page-heading h1{font-size:26px}.academy-grid{grid-template-columns:1fr}.feature-card,.tool-card{min-height:auto}.practice-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.practice-tools .tool-card{padding:12px}.practice-tools .tool-card>span{width:32px;height:32px;font-size:14px}.practice-tools .tool-card h3{font-size:12px}.practice-tools .btn{padding:8px 5px;font-size:11px}.scene-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
-@media(max-width:360px){.main-shell .view{padding-inline:12px}.mobile-brand span{font-size:14px}.sidebar .tab{font-size:9px}.scene-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
+  .page-heading h1{font-size:26px}.academy-grid{grid-template-columns:1fr}.feature-card,.tool-card{min-height:auto}.practice-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.practice-tools .tool-card{padding:12px}.practice-tools .tool-card>span{width:32px;height:32px;font-size:14px}.practice-tools .tool-card h3{font-size:12px}.practice-tools .btn{padding:8px 5px;font-size:11px}}
+@media(max-width:360px){.main-shell .view{padding-inline:12px}.mobile-brand span{font-size:14px}.sidebar .tab{font-size:9px}}
 /* ---- 图标系统（js/icons.js）：替代原 emoji ---- */
 .ico{width:1.15em;height:1.15em;flex:none;vertical-align:-.17em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .ico.lg{width:1.5em;height:1.5em;vertical-align:-.28em}
@@ -657,3 +642,8 @@ body{overflow-x:hidden;overflow-x:clip}
 @media(max-width:400px){
   .tabbar .tab{font-size:9px!important}
 }
+/* 外观（背景选择 / 涟漪 / 语音说明）已整体移除，固定使用水彩暖米底 */
+body{background-color:var(--bg)!important;background-image:
+  radial-gradient(58% 26% at 88% 0%,rgba(243,199,174,.45),transparent 70%),
+  radial-gradient(52% 24% at 0% 14%,rgba(240,214,190,.40),transparent 72%)!important;
+  background-attachment:fixed!important}

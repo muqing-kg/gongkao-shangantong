@@ -65,15 +65,8 @@ with sync_playwright() as p:
     page.evaluate("switchTab('ai')")
     check("上岸小助手一级页提供独立文字语音对话框", page.locator('.ask-composer[data-context="ai"]').count() == 1 and page.locator('[data-mic="ai"]').count() == 1)
 
-    page.evaluate("switchTab('profile')")
-    check("我的书斋提供十种环境背景", page.locator('.scene-choice').count() == 10)
-    page.get_by_role('button', name='清荷').click()
-    check("书斋背景切换即时生效", page.locator('html').get_attribute('data-scene') == 'lotus')
-    ripple = page.get_by_role('button', name='点击涟漪')
-    before = ripple.get_attribute('aria-pressed')
-    ripple.click()
-    check("书斋涟漪开关可访问并持久化", before != ripple.get_attribute('aria-pressed') and page.evaluate("JSON.parse(localStorage.getItem('zhize_ui_prefs_v1')).ripple") == (ripple.get_attribute('aria-pressed') == 'true'))
-    check("我的书斋保留显示与无障碍设置", page.locator('.scene-choice').count() == 10)
+    page.evaluate("switchTab('more')")
+    check("设置页提供数据管理与 AI 接入", page.locator('#view .card').count() >= 3)
 
     question = page.evaluate(
         """() => {

@@ -165,26 +165,6 @@ function save(nextStore=store){
   catch(_){ toast('本地存储空间不足，请先导出备份并清理旧数据','error'); return false; }
 }
 
-/* ---------- 同舟共济环境偏好（与学习备份相互独立） ---------- */
-const UI_PREF_KEY='zhize_ui_prefs_v1';
-const UI_SCENES=new Set(['mountains','lake','bamboo','cloud','plum','bridge','moon','lotus','paper','none']);
-function loadUiPrefs(){
-  try{
-    const raw=JSON.parse(localStorage.getItem(UI_PREF_KEY)||'{}');
-    return {scene:UI_SCENES.has(raw.scene)?raw.scene:'mountains',ripple:raw.ripple!==false};
-  }catch(_){ return {scene:'mountains',ripple:true}; }
-}
-let uiPrefs=loadUiPrefs();
-function applyUiPrefs(){ document.documentElement.dataset.scene=uiPrefs.scene; }
-function persistUiPrefs(){
-  try{ localStorage.setItem(UI_PREF_KEY,JSON.stringify(uiPrefs)); return true; }
-  catch(_){ toast('显示偏好保存失败','error'); return false; }
-}
-function setUiScene(scene){
-  if(!UI_SCENES.has(scene)) return false;
-  uiPrefs={...uiPrefs,scene}; applyUiPrefs(); persistUiPrefs(); return true;
-}
-function setUiRipple(enabled){ uiPrefs={...uiPrefs,ripple:!!enabled}; persistUiPrefs(); return uiPrefs.ripple; }
 function allQuestions(){
   if(allQuestions._c) return allQuestions._c;   // 缓存题库展开结果
   allQuestions._c = MODS.flatMap(m=>QUESTION_BANK[m].map(q=>({...q,mod:m})));
@@ -409,7 +389,7 @@ async function aiGuessWhy(){
   if(!ctx){ toast('请先进入逐题回顾再让 AI 判断','error'); return; }
   const {q, chosen}=ctx;
   if(isCorrect(q,chosen)){ toast('这题答对了，不用判断错因','error'); return; }
-  if(!window.AI?.ready()){ toast('请先到「我的书斋 → AI 接入」配置接口','error'); return; }
+  if(!window.AI?.ready()){ toast('请先到「设置 → AI 接入」配置接口','error'); return; }
   const a=[...store.attempts].reverse().find(x=>x.qid===q.id);
   const dur=a?.dur||0;
   const atts=store.attempts.filter(x=>x.dur>0);
@@ -464,7 +444,7 @@ function aiRefresh(kind){
 }
 /* 两个 AI 落点共用一条执行链：查配置 → 置忙 → 调用 → 落盘或记错 → 回绘 */
 async function runAiTask(kind, system, user, opts={}){
-  if(!window.AI?.ready()){ toast('请先到「我的书斋 → AI 接入」配置接口','error'); return false; }
+  if(!window.AI?.ready()){ toast('请先到「设置 → AI 接入」配置接口','error'); return false; }
   aiBusy[kind]=true; aiErrors[kind]='';
   aiRefresh(kind);
   try{
@@ -558,7 +538,7 @@ function aiCardHtml(kind, title, intro, btnText, action){
   const head=`<h3><span class="dot"></span>${title}${text? ' <span class="tag">AI 生成 · 仅供参考</span>':''}</h3>`;
   if(!window.AI?.ready()){
     return `<div class="card">${head}
-      <div class="muted">还没配置 AI 接口。到「我的书斋 → AI 接入」填一次即可——Key 只存在这台设备上，不会随备份导出。</div>
+      <div class="muted">还没配置 AI 接口。到「设置 → AI 接入」填一次即可——Key 只存在这台设备上，不会随备份导出。</div>
       <div class="btn-row"><button class="btn" onclick="switchTab('more')">去配置</button></div></div>`;
   }
   if(aiBusy[kind]) return `<div class="card">${head}<div class="muted">正在读你的数据…</div></div>`;
@@ -932,10 +912,7 @@ function openGrowthTool(tool){
 function renderAi(){
   $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>问不明白的</h1><p>它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<div class="notice">要问<b>具体某道题</b>，在答题页答完后、或逐题回顾里，题目下方会出现输入框——那里会带上题干、选项与题库原始解析。这一页适合问备考方法。</div>`;
 }
-const UI_SCENE_OPTIONS=[['mountains','远山'],['lake','烟水'],['bamboo','竹影'],['cloud','云水'],['plum','疏梅'],['bridge','柳桥'],['moon','月隐'],['lotus','清荷'],['paper','素宣'],['none','无背景']];
 function renderProfile(){ renderMore(); }
-function chooseUiScene(scene,button){ if(!setUiScene(scene)) return; $$('.scene-choice').forEach(x=>x.classList.toggle('active',x===button)); }
-function toggleUiRipple(button){ const enabled=setUiRipple(button.getAttribute('aria-pressed')!=='true'); button.setAttribute('aria-pressed',String(enabled)); button.classList.toggle('on',enabled); }
 
 const ASK_PROMPTS={
   home:['今天先练什么','帮我安排 30 分钟复习','我哪个模块最该补','数量关系总做不完怎么办'],
@@ -1011,9 +988,9 @@ function renderAskComposer(context='home', q, chosen){
   const on=!!window.AI?.ready();
   const hint = context==='question'
     ? (on? '问题会连同这道题的题干、选项与题库原始解析一起发给已配置的 AI。'
-         : '尚未接入服务；到「我的书斋 → AI 接入」填一次即可。')
+         : '尚未接入服务；到「设置 → AI 接入」填一次即可。')
     : (on? '问题会连同你的学情统计（模块正确率、用时、错因）一起发给已配置的 AI，不含题目与答案。'
-         : '尚未接入服务；到「我的书斋 → AI 接入」填一次即可。');
+         : '尚未接入服务；到「设置 → AI 接入」填一次即可。');
   return `<section class="card ask-composer" data-context="${context}" aria-labelledby="ask-${context}-title">
     <div class="ask-head"><div><h3 id="ask-${context}-title"> 上岸小助手</h3><p>先问清，再练透。可输入文字，也可口述问题。</p></div><span class="tag">${on?'已接入 AI':'尚未接入服务'}</span></div>
     <div class="ask-chips">${prompts.map(p=>`<button type="button" class="ask-chip" onclick="fillAskPrompt('${context}','${inlineArg(p)}')">${esc(p)}</button>`).join('')}</div>
@@ -1033,7 +1010,7 @@ async function sendAsk(context){
   const question=(input?.value||'').trim();
   if(!question){ if(status) status.textContent='请先输入想问的问题。'; input?.focus(); return; }
   if(!window.AI?.ready()){
-    if(status) status.textContent='还没配置 AI 接口——到「我的书斋 → AI 接入」填一次即可；你的草稿已保留。';
+    if(status) status.textContent='还没配置 AI 接口——到「设置 → AI 接入」填一次即可；你的草稿已保留。';
     return;
   }
   const ctx = context==='question'? askQuestionCtx() : null;
@@ -1885,6 +1862,8 @@ function renderWrong(){
       <button class="btn primary" onclick="startQuiz(shuffle(list),'错题重练 · '+list.length+'题')">重练全部错题 (${list.length})</button>
       <button class="btn" onclick="renderWrongByMod()">按模块筛选</button>
     </div>
+    <div class="list-row mt14"><div><div class="l-title">艾宾浩斯复习提醒</div><div class="l-sub">错题按 1/2/4/7/15 天提醒复习，今日 ${reviewDue().length} 题</div></div>
+    <button type="button" class="switch ${store.settings.reviewOn?'on':''}" aria-label="艾宾浩斯复习提醒" aria-pressed="${store.settings.reviewOn?'true':'false'}" onclick="toggleReview()"></button></div>
   </div>
   ${list.length===0? `<div class="empty"><span class="big">${ico('trophy')}</span>太棒了，没有待重练的错题！<br><span class="muted">继续刷题保持手感吧</span></div>`:
   `<div class="card"><h3><span class="dot"></span>错题列表（${list.length}）</h3>
@@ -2053,7 +2032,7 @@ async function submitEssay(){
   const requirement=($('#essayReq')?.value||'').trim();
   const body=($('#essayBody')?.value||'').trim();
   if(body.length<200){ toast('作文太短了，至少 200 字再提交','error'); return; }
-  if(!window.AI?.ready()){ toast('请先到「我的书斋 → AI 接入」配置接口','error'); return; }
+  if(!window.AI?.ready()){ toast('请先到「设置 → AI 接入」配置接口','error'); return; }
   const btn=$('#essayBtn'); if(btn){ btn.disabled=true; btn.textContent='批改中…'; }
   $('#essayResult').innerHTML='<div class="card"><div class="muted">AI 正在批改，长文可能要十几秒…</div></div>';
   try{
@@ -2168,15 +2147,6 @@ function delCustomSl(title){
 }
 
 /* ============ 更多 ============ */
-function bankCacheStatusText(){
-  const s=window.LAZY_BANK_STATUS;
-  if(!s) return '当前浏览器不支持完整题库缓存';
-  if(s.cacheHit) return '本次已从本地缓存快速恢复完整题库';
-  if(s.cacheStored) return '完整题库已缓存，下次访问可快速恢复';
-  if(s.loading) return '完整题库正在加载，完成后会自动缓存';
-  if(s.loaded) return '完整题库已加载，正在后台写入缓存';
-  return '完整题库尚未加载';
-}
 async function clearBankCache(){
   uiConfirm('只清理约 150MB 的完整题库缓存？作答记录、错题本和个人画像不会删除。',async()=>{
     try{
@@ -2187,23 +2157,8 @@ async function clearBankCache(){
   },'清理');
 }
 function renderMore(){
-  const due=reviewDue();
-  $('#view').innerHTML=`<header class="page-heading"><span>设置</span><h1>数据和偏好</h1><p>备份、缓存、背景、隐私说明。</p></header>
-  <div class="card"><h3><span class="dot"></span>打卡日历</h3>
-    <div class="muted mb10">连续打卡 ${streakDays()} 天，共打卡 ${Object.keys(store.checkins).length} 天。每天首次完成练习即自动打卡。</div>
-    <div class="cal-wrap"><div class="weekdays">${'一二三四五六日'.split('').map(w=>`<span>${w}</span>`).join('')}</div><div class="cal-grid">${heatmap()}</div></div>
-  </div>
-  >
-  <div class="card"><h3><span class="dot"></span>复习与提醒</h3>
-    <div class="list-row"><div><div class="l-title">艾宾浩斯复习提醒</div><div class="l-sub">错题按 1/2/4/7/15 天提醒复习，今日 ${due.length} 题</div></div>
-    <button type="button" class="switch ${store.settings.reviewOn?'on':''}" aria-label="艾宾浩斯复习提醒" aria-pressed="${store.settings.reviewOn?'true':'false'}" onclick="toggleReview()"></button></div>
-  </div>
-  <div class="card"><h3><span class="dot"></span> 题库离线加速</h3>
-    <div class="muted">${bankCacheStatusText()}。缓存仅保存公共题库，约占 150MB；版本更新后会自动失效并重建。</div>
-    <div class="btn-row"><button class="btn" onclick="clearBankCache()">清理题库缓存</button></div>
-  </div>
+  $('#view').innerHTML=`<header class="page-heading"><span>设置</span><h1>数据和偏好</h1><p>备份、AI 接入、背景、关于。</p></header>
   ${renderAiConfig()}
-  <div class="card"><div class="notice">学习记录留在当前浏览器。接入 AI 后，提问会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；首页与学情诊断发送的是统计（正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</div></div>
   <div class="card"><h3><span class="dot"></span>数据管理</h3>
     <div class="muted mb10" ${backupStatus().warn? 'style="color:var(--red)"':''}>${backupStatus().text}</div>
     <div class="btn-row">
@@ -2214,32 +2169,11 @@ function renderMore(){
     </div>
     <div class="muted mt8">数据保存在浏览器本地（localStorage），导出为 JSON 文件可随时恢复或迁移到其他设备。</div>
   </div>
-  <section class="card display-settings"><div class="card-heading"><h3><span class="dot"></span>显示与无障碍</h3><span class="tag">即时生效</span></div><p class="muted mb10">选择一幅极淡古风背景；长题干和解析始终使用高不透明纸面保证可读。</p>
-    <div class="scene-grid">${UI_SCENE_OPTIONS.map(([id,name])=>`<button type="button" class="scene-choice ${uiPrefs.scene===id?'active':''}" aria-label="${name}" onclick="chooseUiScene('${id}',this)"><span class="scene-thumb scene-${id}"></span><span>${name}</span></button>`).join('')}</div>
-    <div class="list-row"><div><div class="l-title">点击涟漪</div><div class="l-sub">点击按钮时出现一次淡墨水纹；减少动态效果时自动停用。</div></div><button type="button" class="switch ${uiPrefs.ripple?'on':''}" aria-label="点击涟漪" aria-pressed="${uiPrefs.ripple?'true':'false'}" onclick="toggleUiRipple(this)"></button></div>
-    <div class="list-row"><div><div class="l-title">语音输入</div><div class="l-sub">首次点击时由浏览器请求权限；转写文字确认后才会发送。</div></div><span class="tag">按需授权</span></div>
-  </section>
   <div class="card"><h3><span class="dot"></span>关于</h3>
-    <div class="muted">同舟共济 v2.20.0 — 公务员考试学习与成长平台。纯前端、题库持久缓存、离线加速，学习数据默认保存在当前浏览器。</div>
+    <div class="muted">同舟共济 v2.21.0 — 公务员考试学习与成长平台。纯前端、题库持久缓存，学习数据默认保存在当前浏览器。</div>
+    <div class="notice mt14">学习记录留在当前浏览器。接入 AI 后，提问会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；首页与学情诊断发送的是统计（正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</div>
   </div>`;
 }
-function heatmap(){
-  const t=new Date(); const todayIdx=(t.getDay()+6)%7; const totalDays=16*7;
-  const start=new Date(t); start.setHours(12,0,0,0); start.setDate(t.getDate()-todayIdx-(15*7));
-  let html='';
-  for(let week=0;week<16;week++){
-    for(let d=0;d<7;d++){
-      const date=new Date(start.getTime()+(week*7+d)*86400000);
-      const key=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-      const ci=store.checkins[key];
-      const level=ci? (ci.answered>=10?3:ci.answered>=5?2:1):0;
-      html+=`<div class="cal-cell ${level>0?'done':''}" style="opacity:${level?0.5+level*0.17:1}" title="${key} ${ci?ci.answered+'题':'未打卡'}">${date.getDate()}</div>`;
-    }
-  }
-  return html;
-}
-/* 备份提醒：架构选了「数据存在用户浏览器」，代价就是换设备/清数据会丢。
-   这是那条取舍的已知短板，必须在界面上主动提醒，不能等出事。 */
 function backupStatus(){
   const last=store.settings.lastExport||0;
   const hasData=store.stats.answered>0 || (store.essays||[]).length>0 || Object.keys(store.wrongs).length>0;
@@ -2512,13 +2446,6 @@ $('#quizClose').onclick=function(){
 /* 主导航与轻量古风交互 */
 $$('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.view));
 $$('[data-open-view]').forEach(t=>t.onclick=()=>switchTab(t.dataset.openView));
-document.addEventListener('pointerdown',e=>{
-  if(!uiPrefs.ripple||e.button!==0||matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  if(!e.target.closest('button,a,.btn')||e.target.closest('input,textarea,select,[contenteditable="true"]')) return;
-  const wave=document.createElement('span'); wave.className='ink-ripple';
-  wave.style.left=`${e.clientX}px`; wave.style.top=`${e.clientY}px`; document.body.appendChild(wave);
-  wave.addEventListener('animationend',()=>wave.remove(),{once:true});
-});
 
 /* 初始化 */
 window.closeResult=()=>{ $('#resultLayer').classList.add('hidden'); modalBackground(false,false); renderView(currentView()); restoreModalFocus(); };
@@ -2538,9 +2465,8 @@ window.doSearch=doSearch; window.searchDebounced=searchDebounced; window.startSe
 window.exportData=exportData; window.importData=importData; window.confirmReset=confirmReset; window.clearBankCache=clearBankCache;
 window.toggleReview=toggleReview;
 window.reviewQuiz=reviewQuiz; window.reviewNav=reviewNav; window.closeResult=closeResult;
-window.setUiScene=setUiScene; window.setUiRipple=setUiRipple;
 window.fillAskPrompt=fillAskPrompt; window.sendAsk=sendAsk; window.askMic=askMic;
-window.openGrowthTool=openGrowthTool; window.chooseUiScene=chooseUiScene; window.toggleUiRipple=toggleUiRipple;
+window.openGrowthTool=openGrowthTool;
 window.savePlan=savePlan; window.startPlanQuiz=startPlanQuiz;
 window.markWhy=markWhy;
 window.aiDiagnose=aiDiagnose; window.saveAiCfg=saveAiCfg; window.testAiCfg=testAiCfg;
@@ -2551,5 +2477,4 @@ window.delEssay=delEssay; window.clearEssayForm=clearEssayForm;
 window.renderShenlunPapers=renderShenlunPapers; window.toggleSlMat=toggleSlMat;
 window.toggleSlAns=toggleSlAns; window.essayFromPaper=essayFromPaper;
 window.copyAiCfg=copyAiCfg; window.importAiCfg=importAiCfg;
-applyUiPrefs();
 switchTab('dashboard');

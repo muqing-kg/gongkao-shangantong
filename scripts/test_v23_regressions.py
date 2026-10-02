@@ -179,7 +179,7 @@ with sync_playwright() as p:
     check('允许浏览器缩放', 'user-scalable=no' not in viewport)
     check('底部导航具有可访问名称', page.locator('nav[aria-label="主要功能"]').count() == 1)
     check('当前标签暴露aria-current', page.locator('.tab[aria-current="page"]').count() == 1)
-    check('开关使用原生按钮', page.evaluate("renderMore(); !!document.querySelector('button.switch[aria-pressed]')"))
+    check('设置页正常渲染且无残留开关', page.evaluate("renderMore(); document.querySelector('#view .card') !== null && !document.querySelector('.scene-choice')"))
     check('模考快捷入口支持键盘聚焦', page.evaluate("renderExamConfig(); document.querySelectorAll('button.exam-config .ec, .exam-config button.ec').length === 4"))
     check('题库筛选控件具有可访问名称', page.evaluate("renderPractice(); [...document.querySelectorAll('.search-grid select')].every(x=>x.getAttribute('aria-label'))"))
     dialog = page.evaluate("""() => { const q=allQuestions()[0]; startQuiz([q],'焦点隔离'); const ok=document.querySelector('#view').hasAttribute('inert')&&!document.querySelector('#quizLayer').hasAttribute('inert'); document.querySelector('#quizLayer').classList.add('hidden'); modalBackground(false); return ok; }""")
