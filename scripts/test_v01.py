@@ -193,11 +193,6 @@ with sync_playwright() as p:
     page.evaluate("switchTab('more')")
     time.sleep(0.3)
     check('更多-打卡日历', page.locator('.cal-cell').count()>50, f"({page.locator('.cal-cell').count()})")
-    check('更多-番茄钟', page.locator('#pomoT').text_content().strip()=='25:00')
-    page.click('#pomoBtn')
-    time.sleep(1.2)
-    check('番茄钟-开始计时', page.locator('#pomoT').text_content().strip()!='25:00', page.locator('#pomoT').text_content().strip())
-    page.click('#pomoBtn')
 
     # 模考配置
     page.evaluate("switchTab('exam')")

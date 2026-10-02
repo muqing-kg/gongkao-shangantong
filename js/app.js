@@ -122,7 +122,7 @@ const ATT_LIMIT=3000;
 const WHY_OPTIONS=['不会','来不及','粗心','蒙的'];
 const WHY_COLOR={'不会':'var(--red)','来不及':'#e0962f','粗心':'var(--gold)','蒙的':'#8e6fd8'};
 const ESSAY_LIMIT=30;      // 练笔记录上限，超出丢弃最旧的
-const DEF = { wrongs:{}, checkins:{}, stats:{answered:0,correct:0,byMod:{},daily:[]}, favs:[], customSl:[], pomo:{count:0,minutes:0}, attempts:[], plan:{exam:'',date:'',daily:60}, essays:[], settings:{dailyCount:10,reviewOn:true,lastExport:0} };
+const DEF = { wrongs:{}, checkins:{}, stats:{answered:0,correct:0,byMod:{},daily:[]}, favs:[], customSl:[], attempts:[], plan:{exam:'',date:'',daily:60}, essays:[], settings:{dailyCount:10,reviewOn:true,lastExport:0} };
 let store = load();
 function isRecord(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
 function finiteNonNegative(v,fallback=0){ const n=Number(v); return Number.isFinite(n)&&n>=0?n:fallback; }
@@ -144,7 +144,6 @@ function normalizeStore(d, strict=false){
     checkins, stats,
     favs:Array.isArray(d.favs)?d.favs.filter(x=>typeof x==='string').map(safeText):[],
     customSl:Array.isArray(d.customSl)?d.customSl.filter(isRecord).map(s=>({cat:safeText(s.cat||'我的笔记'),title:safeText(s.title||''),body:safeText(s.body||''),custom:true})).filter(s=>s.title&&s.body):[],
-    pomo:{count:finiteNonNegative(d.pomo?.count),minutes:finiteNonNegative(d.pomo?.minutes)},
     attempts,
     plan:{
       exam:safeText(d.plan?.exam||'').slice(0,30),
@@ -919,7 +918,7 @@ function renderGrowth(){
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/stopwatch.png" alt=""></span><h3>学习计划</h3><p>${planSummaryText()}</p><button class="btn primary" onclick="openGrowthTool('plan')">查看计划</button></article>
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/analyze.png" alt=""></span><h3>能力图谱</h3><p>基于 ${total} 次作答，梳理模块、考点、难度、来源和用时表现。</p><button class="btn primary" onclick="openGrowthTool('ability')">能力图谱</button></article>
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/review.png" alt=""></span><h3>错题温习</h3><p>按 1 / 2 / 4 / 7 / 15 天节奏复习，今日到期 ${due.length} 题。</p><button class="btn" onclick="openGrowthTool('wrong')">错题温习</button></article>
-    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/focus.png" alt=""></span><h3>专注修习</h3><p>用番茄钟保持节奏，累计专注 ${store.pomo.minutes} 分钟。</p><button class="btn" onclick="openGrowthTool('focus')">专注修习</button></article>
+    
   </section>
   <section class="card growth-summary"><h3><span class="dot"></span>当前修业小结</h3><div class="hero-stats"><div class="hs"><b>${total}</b><span>作答记录</span></div><div class="hs"><b>${total?Math.round(correct/total*100):0}%</b><span>近期正确率</span></div><div class="hs"><b>${streakDays()}</b><span>连续学习</span></div></div></section>`;
 }
@@ -931,12 +930,12 @@ function openGrowthTool(tool){
   else renderMore();
 }
 function renderAi(){
-  $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>有依据地解释，有边界地建议</h1><p>问学于泽，明理而行。它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<section class="academy-grid"><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/explain.png" alt=""></span><h3>题目精讲</h3><p>做题答完后、或在逐题回顾里，题目下方会出现上岸小助手框——那里会带上题干、选项与题库原始解析。这一页只适合问备考方法。</p></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/plan.png" alt=""></span><h3>学习规划</h3><p>未来可根据目标和可用时间生成可修改的学习建议。</p></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/note.png" alt=""></span><h3>对话记录</h3><p>服务接入后再提供可查看、可删除的本地会话记录。</p></article></section>`;
+  $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>有依据地解释，有边界地建议</h1><p>问学于泽，明理而行。它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<div class="notice">要问<b>具体某道题</b>，在答题页答完后、或逐题回顾里，题目下方会出现输入框——那里会带上题干、选项与题库原始解析。这一页适合问备考方法。</div>`;
 }
 const UI_SCENE_OPTIONS=[['mountains','远山'],['lake','烟水'],['bamboo','竹影'],['cloud','云水'],['plum','疏梅'],['bridge','柳桥'],['moon','月隐'],['lotus','清荷'],['paper','素宣'],['none','无背景']];
 function renderProfile(){
   $('#view').innerHTML=`<header class="page-heading"><span>我的书斋</span><h1>学习数据，由你掌握</h1><p>数据、题库、显示偏好和隐私说明集中在这里。</p></header>
-  <section class="academy-grid profile-actions"><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/archive.png" alt=""></span><h3>数据管理</h3><p>导出备份、导入恢复与清空学习数据。</p><button class="btn" onclick="renderMore()">数据管理</button></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/library.png" alt=""></span><h3>题库与缓存</h3><p>${bankCacheStatusText()}。</p><button class="btn" onclick="renderMore()">题库与缓存</button></article><article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/privacy.png" alt=""></span><h3>隐私与关于</h3><p>学习记录留在当前浏览器。接入 AI 后，上岸小助手的问题会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；在首页／上岸小助手页提问、以及点「AI 学情诊断／排计划」时，发送的是学情统计（模块正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</p><button class="btn" onclick="renderMore()">查看详情</button></article></section>
+    <div class="notice">学习记录留在当前浏览器。接入 AI 后，提问会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；首页与学情诊断发送的是统计（正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</div>
   <section class="card display-settings"><div class="card-heading"><h3><span class="dot"></span>显示与无障碍</h3><span class="tag">即时生效</span></div><p class="muted mb10">选择一幅极淡古风背景；长题干和解析始终使用高不透明纸面保证可读。</p>
     <div class="scene-grid">${UI_SCENE_OPTIONS.map(([id,name])=>`<button type="button" class="scene-choice ${uiPrefs.scene===id?'active':''}" aria-label="${name}" onclick="chooseUiScene('${id}',this)"><span class="scene-thumb scene-${id}"></span><span>${name}</span></button>`).join('')}</div>
     <div class="list-row"><div><div class="l-title">点击涟漪</div><div class="l-sub">点击按钮时出现一次淡墨水纹；减少动态效果时自动停用。</div></div><button type="button" class="switch ${uiPrefs.ripple?'on':''}" aria-label="点击涟漪" aria-pressed="${uiPrefs.ripple?'true':'false'}" onclick="toggleUiRipple(this)"></button></div>
@@ -2177,15 +2176,7 @@ function renderMore(){
     <div class="muted mb10">连续打卡 ${streakDays()} 天，共打卡 ${Object.keys(store.checkins).length} 天。每天首次完成练习即自动打卡。</div>
     <div class="cal-wrap"><div class="weekdays">${'一二三四五六日'.split('').map(w=>`<span>${w}</span>`).join('')}</div><div class="cal-grid">${heatmap()}</div></div>
   </div>
-  <div class="card"><h3><span class="dot"></span> 番茄专注钟</h3>
-    <div class="pomo-circle" id="pomoC"><div class="pomo-time" id="pomoT">25:00</div></div>
-    <div class="pomo-state" id="pomoS">工作 25 分钟 · 休息 5 分钟</div>
-    <div class="btn-row">
-      <button class="btn primary" id="pomoBtn" onclick="pomoToggle()">开始专注</button>
-      <button class="btn" onclick="pomoReset()">重置</button>
-    </div>
-    <div class="center muted mt8">今日已完成 <b id="pomoCnt">${store.pomo.count}</b> 个番茄 · 累计专注 <b>${store.pomo.minutes}</b> 分钟</div>
-  </div>
+  >
   <div class="card"><h3><span class="dot"></span>复习与提醒</h3>
     <div class="list-row"><div><div class="l-title">艾宾浩斯复习提醒</div><div class="l-sub">错题按 1/2/4/7/15 天提醒复习，今日 ${due.length} 题</div></div>
     <button type="button" class="switch ${store.settings.reviewOn?'on':''}" aria-label="艾宾浩斯复习提醒" aria-pressed="${store.settings.reviewOn?'true':'false'}" onclick="toggleReview()"></button></div>
@@ -2255,7 +2246,6 @@ function importData(input){
 }
 function confirmReset(){
   if(confirm('确定清空全部学习数据吗？此操作不可恢复，建议先导出备份。')){
-    pomoReset();
     store=JSON.parse(JSON.stringify(DEF));
     localStorage.removeItem(PAPER_KEY);
     const fillKeys=[];
@@ -2265,34 +2255,6 @@ function confirmReset(){
   }
 }
 function toggleReview(){ store.settings.reviewOn=!store.settings.reviewOn; save(); renderMore(); }
-
-/* ============ 番茄钟 ============ */
-let pomo={running:false,work:true,left:25*60,timer:null,total:25*60};
-function pomoRender(){
-  if(!$('#pomoT')) return;
-  const m=String(Math.floor(pomo.left/60)).padStart(2,'0'), s=String(pomo.left%60).padStart(2,'0');
-  $('#pomoT').textContent=`${m}:${s}`;
-  const pct=pomo.left/pomo.total;
-  $('#pomoC').style.background=`conic-gradient(var(--gold) ${pct*360}deg, #eef1f5 0deg)`;
-  $('#pomoS').textContent=pomo.work? (pomo.running?'专注中…':'工作 25 分钟 · 休息 5 分钟') : '休息时间 ';
-  $('#pomoBtn').textContent=pomo.running?'暂停':'开始专注';
-  $('#pomoBtn').className='btn '+(pomo.work?'primary':'gold');
-}
-function pomoToggle(){
-  if(pomo.running){ pomo.running=false; clearInterval(pomo.timer); }
-  else{ pomo.running=true; pomo.timer=setInterval(()=>{
-    pomo.left--;
-    if(pomo.left<=0){
-      if(pomo.work){ store.pomo.count++; store.pomo.minutes+=25; save(); $('#pomoCnt').textContent=store.pomo.count; toast(' 专注完成，休息 5 分钟吧！','ok'); }
-      else toast('休息结束，开始下一轮！');
-      pomo.work=!pomo.work;
-      pomo.left=pomo.work?25*60:5*60; pomo.total=pomo.left;
-    }
-    pomoRender();
-  },1000); }
-  pomoRender();
-}
-function pomoReset(){ clearInterval(pomo.timer); pomo={running:false,work:true,left:25*60,timer:null,total:25*60}; pomoRender(); }
 
 /* ============ 答题引擎 ============ */
 let Q={list:[],idx:0,answers:{},marks:{},mode:'practice',start:0,limit:0,deadline:0,timer:null,elapsed:0,mods:[],context:'practice'};
@@ -2547,7 +2509,7 @@ window.saveFill=saveFill; window.submitFill=submitFill; window.registerPaper=reg
 window.renderAnalysis=renderAnalysis; window.smartQuiz=smartQuiz;
 window.doSearch=doSearch; window.searchDebounced=searchDebounced; window.startSearchResult=startSearchResult; window.exportFiltered=exportFiltered; window.printFiltered=printFiltered;
 window.exportData=exportData; window.importData=importData; window.confirmReset=confirmReset; window.clearBankCache=clearBankCache;
-window.toggleReview=toggleReview; window.pomoToggle=pomoToggle; window.pomoReset=pomoReset;
+window.toggleReview=toggleReview;
 window.reviewQuiz=reviewQuiz; window.reviewNav=reviewNav; window.closeResult=closeResult;
 window.setUiScene=setUiScene; window.setUiRipple=setUiRipple;
 window.fillAskPrompt=fillAskPrompt; window.sendAsk=sendAsk; window.askMic=askMic;
@@ -2563,5 +2525,4 @@ window.renderShenlunPapers=renderShenlunPapers; window.toggleSlMat=toggleSlMat;
 window.toggleSlAns=toggleSlAns; window.essayFromPaper=essayFromPaper;
 window.copyAiCfg=copyAiCfg; window.importAiCfg=importAiCfg;
 applyUiPrefs();
-pomoRender();
 switchTab('dashboard');

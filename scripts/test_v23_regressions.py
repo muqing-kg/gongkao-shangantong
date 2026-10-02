@@ -114,8 +114,8 @@ with sync_playwright() as p:
       return {n:kept.length,first:kept[0]?.qid,last:kept.at(-1)?.qid};
     }""")
     check('归一化attempts保留最近3000条', attempts == {'n':3000,'first':'q10','last':'q3009'}, str(attempts))
-    import_xss = page.evaluate("""() => { store=normalizeStore({stats:{answered:'<img src=x onerror=window.__importXss=1>'},wrongs:{},pomo:{count:'<img src=x onerror=window.__importXss=1>'},attempts:[{mod:'<img>',point:'x'}]},true); window.__importXss=0; renderMore(); return {ran:window.__importXss,imgs:document.querySelectorAll('#view img').length,count:store.pomo.count}; }""")
-    check('恶意备份数值字段不能形成持久化XSS', not import_xss['ran'] and import_xss['imgs'] == 0 and import_xss['count'] == 0, str(import_xss))
+    import_xss = page.evaluate("""() => { store=normalizeStore({stats:{answered:'<img src=x onerror=window.__importXss=1>'},wrongs:{},attempts:[{mod:'<img>',point:'x'}]},true); window.__importXss=0; renderMore(); return {ran:window.__importXss,imgs:document.querySelectorAll('#view img').length,answered:store.stats.answered}; }""")
+    check('恶意备份数值字段不能形成持久化XSS', not import_xss['ran'] and import_xss['imgs'] == 0 and import_xss['answered'] == 0, str(import_xss))
 
     check('来源画像区分真题与模考', page.evaluate("sourceBand('2025·国考')==='国考真题' && sourceBand('2025·省考模考')==='模考' && sourceBand('2024·省考')==='省考/联考真题'"))
     daily = page.evaluate("""() => {
@@ -217,12 +217,6 @@ with sync_playwright() as p:
     check('导入保存成功后刷新仍为新数据', imported['success']['memory'] == 42 and imported['success']['persisted'] == 42 and '导入成功' in imported['success']['toast'], str(imported))
     reset = page.evaluate("""() => { localStorage.setItem('shangan_fill_TEST','{}'); localStorage.setItem('shangan_papers_v1','{}'); const old=window.confirm; window.confirm=()=>true; confirmReset(); window.confirm=old; return {paper:localStorage.getItem('shangan_papers_v1'),fill:localStorage.getItem('shangan_fill_TEST')}; }""")
     check('清空全部学习数据包含试卷和回填', reset['paper'] is None and reset['fill'] is None, str(reset))
-    reset_pomo = page.evaluate("""() => {
-      pomo={running:true,work:true,left:12,total:1500,timer:setInterval(()=>{},1000)};
-      const old=window.confirm; window.confirm=()=>true; confirmReset(); window.confirm=old;
-      const out={running:pomo.running,timer:pomo.timer,left:pomo.left,total:pomo.total}; if(pomo.timer) clearInterval(pomo.timer); return out;
-    }""")
-    check('清空数据同时停止并重置番茄钟', reset_pomo == {'running':False,'timer':None,'left':1500,'total':1500}, str(reset_pomo))
     check('无JS运行错误', not errors, str(errors[:3]))
     browser.close()
 

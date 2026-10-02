@@ -60,7 +60,7 @@ with sync_playwright() as p:
 
     page.evaluate("switchTab('growth')")
     check("成长一级页使用修业成长标题", page.locator('.page-heading').first.inner_text().startswith('修业成长'))
-    check("修业成长提供能力图谱错题温习和专注修习", all(page.get_by_role('button', name=name).count() for name in ['能力图谱', '错题温习', '专注修习']))
+    check("修业成长提供能力图谱与错题温习", all(page.get_by_role('button', name=name).count() for name in ['能力图谱', '错题温习']))
 
     page.evaluate("switchTab('ai')")
     check("上岸小助手一级页提供独立文字语音对话框", page.locator('.ask-composer[data-context="ai"]').count() == 1 and page.locator('[data-mic="ai"]').count() == 1)
@@ -73,7 +73,7 @@ with sync_playwright() as p:
     before = ripple.get_attribute('aria-pressed')
     ripple.click()
     check("书斋涟漪开关可访问并持久化", before != ripple.get_attribute('aria-pressed') and page.evaluate("JSON.parse(localStorage.getItem('zhize_ui_prefs_v1')).ripple") == (ripple.get_attribute('aria-pressed') == 'true'))
-    check("我的书斋保留数据与题库管理入口", page.get_by_role('button', name='数据管理').count() == 1 and page.get_by_role('button', name='题库与缓存').count() == 1)
+    check("我的书斋保留显示与无障碍设置", page.locator('.scene-choice').count() == 10)
 
     question = page.evaluate(
         """() => {
