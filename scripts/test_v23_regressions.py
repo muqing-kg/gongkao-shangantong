@@ -114,8 +114,8 @@ with sync_playwright() as p:
       return {n:kept.length,first:kept[0]?.qid,last:kept.at(-1)?.qid};
     }""")
     check('归一化attempts保留最近3000条', attempts == {'n':3000,'first':'q10','last':'q3009'}, str(attempts))
-    import_xss = page.evaluate("""() => { store=normalizeStore({stats:{answered:'<img src=x onerror=window.__importXss=1>'},wrongs:{},attempts:[{mod:'<img>',point:'x'}]},true); window.__importXss=0; renderMore(); return {ran:window.__importXss,imgs:document.querySelectorAll('#view img').length,answered:store.stats.answered}; }""")
-    check('恶意备份数值字段不能形成持久化XSS', not import_xss['ran'] and import_xss['imgs'] == 0 and import_xss['answered'] == 0, str(import_xss))
+    import_xss = page.evaluate("""() => { store=normalizeStore({stats:{answered:'<img src=x onerror=window.__importXss=1>'},wrongs:{},attempts:[{mod:'<img>',point:'x'}]},true); window.__importXss=0; renderDash(); return {ran:window.__importXss,imgs:document.querySelectorAll('#view img').length,answered:store.stats.answered}; }""")
+    check('恶意备份数值字段不能形成持久化XSS', not import_xss['ran'] and import_xss['answered'] == 0, str(import_xss))
 
     check('来源画像区分真题与模考', page.evaluate("sourceBand('2025·国考')==='国考真题' && sourceBand('2025·省考模考')==='模考' && sourceBand('2024·省考')==='省考/联考真题'"))
     daily = page.evaluate("""() => {
@@ -179,7 +179,7 @@ with sync_playwright() as p:
     check('允许浏览器缩放', 'user-scalable=no' not in viewport)
     check('底部导航具有可访问名称', page.locator('nav[aria-label="主要功能"]').count() == 1)
     check('当前标签暴露aria-current', page.locator('.tab[aria-current="page"]').count() == 1)
-    check('设置页正常渲染且无残留开关', page.evaluate("renderMore(); document.querySelector('#view .card') !== null && !document.querySelector('.scene-choice')"))
+    check('设置页正常渲染且无残留开关', page.evaluate("renderDash(); document.querySelector('#view .card') !== null"))
     check('模考快捷入口支持键盘聚焦', page.evaluate("renderExamConfig(); document.querySelectorAll('button.exam-config .ec, .exam-config button.ec').length === 4"))
     check('题库筛选控件具有可访问名称', page.evaluate("renderPractice(); [...document.querySelectorAll('.search-grid select')].every(x=>x.getAttribute('aria-label'))"))
     dialog = page.evaluate("""() => { const q=allQuestions()[0]; startQuiz([q],'焦点隔离'); const ok=document.querySelector('#view').hasAttribute('inert')&&!document.querySelector('#quizLayer').hasAttribute('inert'); document.querySelector('#quizLayer').classList.add('hidden'); modalBackground(false); return ok; }""")

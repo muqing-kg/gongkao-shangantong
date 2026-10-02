@@ -56,7 +56,7 @@ with sync_playwright() as p:
 
     # 390px 各主要页面不得把根文档撑宽；局部日历/申论导航允许自身滚动
     widths=[]
-    for fn in ['renderDash','renderPractice','renderShenlun','renderMore']:
+    for fn in ['renderDash','renderPractice','renderShenlun','renderGrowth']:
         page.evaluate(f'{fn}()')
         page.wait_for_timeout(80)
         widths.append((fn,page.evaluate('() => [document.documentElement.scrollWidth,innerWidth]')))

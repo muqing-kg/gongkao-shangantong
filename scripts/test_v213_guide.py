@@ -5,7 +5,7 @@
 这条取舍的短板必须在界面上主动提醒，不能等出事——所以：
 
 1. 零数据的新用户看到「三步开始」引导；
-2. 有数据却从未备份 / 超过 14 天没备份，首页出现「该备份了」；
+2. 有数据却从未备份 / 超过 14 天没备份，首页「数据管理」卡出现红色提醒；
 3. 导出备份后立刻记录时间，提醒消失；超过 14 天自动回来；
 4. 备份时间随备份文件往返（属于学习数据）。
 """
@@ -40,7 +40,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     txt = page.locator('#view').inner_text()
     check('零数据时显示三步开始', '第一次来？三步开始' in txt, txt[:120])
-    check('零数据时不显示备份提醒', '该备份了' not in txt)
+    check('零数据时不显示备份提醒', '数据管理' in txt and '从未导出过备份' not in txt)
     check('零数据时备份状态说明不用备份',
           '还没有学习数据' in page.evaluate("() => backupStatus().text"))
     check('备份状态不告警', page.evaluate("() => backupStatus().warn") is False)
@@ -54,9 +54,9 @@ with sync_playwright() as p:
     }""")
     page.wait_for_timeout(300)
     txt = page.locator('#view').inner_text()
-    check('有数据未备份时首页提醒', '该备份了' in txt)
+    check('有数据未备份时首页提醒', '从未导出过备份' in txt)
     check('提醒里说明后果', '全部丢失' in txt, txt[:200])
-    check('提醒带一键导出按钮', page.locator('button:has-text("立即导出备份")').count() == 1)
+    check('数据管理卡带导出按钮', page.locator('button:has-text("导出备份")').count() >= 1)
     check('有数据后不再显示三步开始', '第一次来？三步开始' not in txt)
 
     # 我的书斋里也能看到
@@ -68,10 +68,10 @@ with sync_playwright() as p:
     page.evaluate("switchTab('dashboard')")
     page.wait_for_timeout(250)
     with page.expect_download(timeout=15000):
-        page.click('button:has-text("立即导出备份")')
+        page.click('button:has-text("导出备份")')
     page.wait_for_timeout(400)
     check('导出后记录备份时间', page.evaluate("() => store.settings.lastExport") > 0)
-    check('导出后首页提醒消失', '该备份了' not in page.locator('#view').inner_text())
+    check('导出后首页提醒消失', '从未导出过备份' not in page.locator('#view').inner_text())
     check('备份状态显示今天',
           '今天' in page.evaluate("() => backupStatus().text"),
           page.evaluate("() => backupStatus().text"))
@@ -84,9 +84,9 @@ with sync_playwright() as p:
         check(f'{label}未备份时告警={expect_warn}', warn is expect_warn,
               page.evaluate("() => backupStatus().text"))
         if expect_warn:
-            check(f'{label}时首页出现提醒', '该备份了' in page.locator('#view').inner_text())
+            check(f'{label}时首页出现提醒', '建议再导一份' in page.locator('#view').inner_text())
         else:
-            check(f'{label}时首页无提醒', '该备份了' not in page.locator('#view').inner_text())
+            check(f'{label}时首页无提醒', '建议再导一份' not in page.locator('#view').inner_text())
             check(f'{label}时显示天数', '13 天前' in page.evaluate("() => backupStatus().text"))
 
     # ---------- 5. 备份时间随备份往返 ----------

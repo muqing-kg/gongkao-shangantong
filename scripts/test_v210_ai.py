@@ -80,28 +80,17 @@ with sync_playwright() as p:
 
     # ---------- 1. AI 模块与配置页 ----------
     check('AI 接入层已加载', page.evaluate('() => !!(window.AI && window.AI.chat)'))
-    page.evaluate("switchTab('more')")
+    page.evaluate("switchTab('dashboard')")
     page.wait_for_timeout(300)
-    check('设置页出现 AI 接入卡', 'AI 接入' in page.locator('#view').inner_text())
-    check('接口地址/模型/Key 三个输入框就位',
-          page.locator('#aiUrl').count() == 1 and page.locator('#aiModel').count() == 1
-          and page.locator('#aiKey').count() == 1)
-    check('Key 用密码框输入', page.get_attribute('#aiKey', 'type') == 'password')
+    check('AI 接入已从她的端移除', 'AI 接入' not in page.locator('#view').inner_text())
+    check('页面没有 Key 输入框', page.locator('#aiKey').count() == 0)
 
     # ---------- 2. 未配置时的引导 ----------
     page.evaluate("switchTab('growth'); openGrowthTool('ability')")
     page.wait_for_timeout(300)
-    check('未配置时能力分析页给出配置引导',
-          '去配置' in page.locator('#view').inner_text(),
-          page.locator('#view').inner_text()[:120])
 
     # ---------- 3. 保存配置，Key 不进备份 ----------
-    page.evaluate("switchTab('more')")
-    page.wait_for_timeout(250)
-    page.fill('#aiUrl', 'https://api.deepseek.com/v1/chat/completions')
-    page.fill('#aiModel', 'deepseek-flash')
-    page.fill('#aiKey', FAKE_KEY)
-    page.click('button:has-text("保存")')
+    page.evaluate("""(k) => window.AI.saveCfg({url:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-flash',key:k})""", FAKE_KEY)
     page.wait_for_timeout(250)
     cfg = page.evaluate("() => JSON.parse(localStorage.getItem('zhize_ai_cfg_v1'))")
     check('配置写入独立 localStorage',
@@ -202,43 +191,6 @@ with sync_playwright() as p:
     page.wait_for_timeout(800)
     check('数据太少时不发起请求', captured.get('url') is None, str(captured.get('url')))
 
-    # ---------- 9. 获取模型列表（不手输模型名） ----------
-    page.evaluate("""() => {
-      AI.saveCfg({url:'https://api.deepseek.com/v1/chat/completions', model:'', key:'sk-x'});
-      switchTab('more');
-    }""")
-    page.wait_for_timeout(300)
-    check('配置页有「获取模型列表」按钮', page.locator('#aiModelsBtn').count() == 1)
-    check('下拉框初始隐藏', page.locator('#aiModelPick.hidden').count() == 1)
-
-    page.click('#aiModelsBtn')
-    page.wait_for_timeout(1000)
-    check('模型列表请求地址由对话地址推出',
-          mcap.get('url') == 'https://api.deepseek.com/v1/models', str(mcap.get('url')))
-    check('模型列表带鉴权头',
-          mcap.get('headers', {}).get('authorization') == 'Bearer sk-x')
-    check('下拉框显示出来', page.locator('#aiModelPick:not(.hidden)').count() == 1)
-    opts = page.evaluate("() => [...document.querySelectorAll('#aiModelPick option')].map(o => o.value)")
-    check('选项去重且排序', opts == ['', 'deepseek-flash', 'deepseek-v4-pro'], str(opts))
-
-    page.select_option('#aiModelPick', 'deepseek-v4-pro')
-    page.wait_for_timeout(350)
-    check('选择后写回模型输入框', page.input_value('#aiModel') == 'deepseek-v4-pro',
-          page.input_value('#aiModel'))
-    check('选择后即保存到配置',
-          page.evaluate("() => JSON.parse(localStorage.getItem('zhize_ai_cfg_v1')).model") == 'deepseek-v4-pro')
-
-    # 获取失败要给出可照做的提示
-    mmode['status'] = 401
-    mmode['body'] = '{"error":"bad key"}'
-    page.click('#aiModelsBtn')
-    page.wait_for_timeout(1000)
-    check('获取失败时提示鉴权问题',
-          '鉴权失败' in page.locator('#toast').inner_text(), page.locator('#toast').inner_text())
-    check('失败后按钮恢复可用',
-          page.locator('#aiModelsBtn').is_enabled() and page.locator('#aiModelsBtn').inner_text() == '获取模型列表',
-          page.locator('#aiModelsBtn').inner_text())
-
     # ---------- 10. AI 排计划 + 结果持久化 ----------
     page.unroute('**/chat/completions')
     page.route('**/chat/completions', handle)
@@ -282,36 +234,24 @@ with sync_playwright() as p:
     # ---------- 11. 配置搬运（主人配好，导出给他人粘贴导入） ----------
     page.evaluate("""() => {
       AI.saveCfg({url:'https://api.deepseek.com/v1/chat/completions', model:'deepseek-flash', key:'sk-carry-1'});
-      switchTab('more');
+      switchTab('dashboard');
     }""")
     page.wait_for_timeout(300)
-    check('配置页有导入与复制按钮',
-          page.locator('button:has-text("导入配置")').count() == 1
-          and page.locator('button:has-text("复制我的配置")').count() == 1)
     blob = page.evaluate("() => AI.exportCfg()")
     check('导出内容带识别前缀', blob.startswith('ZSAI1:'), blob[:24])
     check('导出内容不含明文 Key', 'sk-carry-1' not in blob)
 
     page.evaluate("AI.saveCfg({url:'https://x.invalid/v1/chat/completions', model:'other', key:'sk-other'})")
-    page.fill('#aiImport', blob)
-    page.click('button:has-text("导入配置")')
-    page.wait_for_timeout(450)
-    back = page.evaluate("() => AI.loadCfg()")
+    back = page.evaluate("""(b) => { try { AI.importCfg(b); } catch(e){} return AI.loadCfg(); }""", blob)
     check('导入后配置完整还原',
           back['url'] == 'https://api.deepseek.com/v1/chat/completions'
           and back['model'] == 'deepseek-flash' and back['key'] == 'sk-carry-1', str(back))
 
-    page.fill('#aiImport', '这不是一段配置')
-    page.click('button:has-text("导入配置")')
-    page.wait_for_timeout(450)
-    check('导入非法内容给出可读提示',
-          '无法识别' in page.locator('#toast').inner_text(), page.locator('#toast').inner_text())
+    err = page.evaluate("""() => { try { AI.importCfg('这不是一段配置'); return ''; } catch(e){ return e.message||''; } }""")
+    check('导入非法内容给出可读提示', '无法识别' in err, err)
 
-    page.fill('#aiImport', 'ZSAI1:eyJ1cmwiOiIifQ==')   # {"url":""}
-    page.click('button:has-text("导入配置")')
-    page.wait_for_timeout(450)
-    check('导入缺少地址的配置被拒绝',
-          '没有接口地址' in page.locator('#toast').inner_text(), page.locator('#toast').inner_text())
+    err2 = page.evaluate("""() => { try { AI.importCfg('ZSAI1:eyJ1cmwiOiIifQ=='); return ''; } catch(e){ return e.message||''; } }""")
+    check('导入缺少地址的配置被拒绝', '没有接口地址' in err2, err2)
 
     check('无 JS 运行错误', not errors, str(errors[:3]))
     browser.close()

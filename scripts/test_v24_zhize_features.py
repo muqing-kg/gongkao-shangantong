@@ -66,7 +66,7 @@ with sync_playwright() as p:
     check("上岸小助手一级页提供独立文字语音对话框", page.locator('.ask-composer[data-context="ai"]').count() == 1 and page.locator('[data-mic="ai"]').count() == 1)
 
     page.evaluate("switchTab('more')")
-    check("设置页提供数据管理与 AI 接入", page.locator('#view .card').count() >= 3)
+    check("首页提供数据管理", page.locator('#view h3:has-text("数据管理")').count() == 1)
 
     question = page.evaluate(
         """() => {

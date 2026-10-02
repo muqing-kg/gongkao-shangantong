@@ -91,7 +91,7 @@ with sync_playwright() as p:
     page.click('#essayBtn')
     page.wait_for_timeout(500)
     check('未配置 AI 时不发起请求', cap.get('url') is None)
-    check('未配置 AI 时提示去配置', 'AI 接入' in page.locator('#toast').inner_text(),
+    check('未配置 AI 时给出提示', 'AI 接口' in page.locator('#toast').inner_text(),
           page.locator('#toast').inner_text())
 
     # ---------- 3. 提交批改 ----------

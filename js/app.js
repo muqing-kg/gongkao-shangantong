@@ -389,7 +389,7 @@ async function aiGuessWhy(){
   if(!ctx){ toast('请先进入逐题回顾再让 AI 判断','error'); return; }
   const {q, chosen}=ctx;
   if(isCorrect(q,chosen)){ toast('这题答对了，不用判断错因','error'); return; }
-  if(!window.AI?.ready()){ toast('请先到「设置 → AI 接入」配置接口','error'); return; }
+  if(!window.AI?.ready()){ toast('AI 接口还没配好，请联系管理员','error'); return; }
   const a=[...store.attempts].reverse().find(x=>x.qid===q.id);
   const dur=a?.dur||0;
   const atts=store.attempts.filter(x=>x.dur>0);
@@ -444,7 +444,7 @@ function aiRefresh(kind){
 }
 /* 两个 AI 落点共用一条执行链：查配置 → 置忙 → 调用 → 落盘或记错 → 回绘 */
 async function runAiTask(kind, system, user, opts={}){
-  if(!window.AI?.ready()){ toast('请先到「设置 → AI 接入」配置接口','error'); return false; }
+  if(!window.AI?.ready()){ toast('AI 接口还没配好，请联系管理员','error'); return false; }
   aiBusy[kind]=true; aiErrors[kind]='';
   aiRefresh(kind);
   try{
@@ -538,8 +538,8 @@ function aiCardHtml(kind, title, intro, btnText, action){
   const head=`<h3><span class="dot"></span>${title}${text? ' <span class="tag">AI 生成 · 仅供参考</span>':''}</h3>`;
   if(!window.AI?.ready()){
     return `<div class="card">${head}
-      <div class="muted">还没配置 AI 接口。到「设置 → AI 接入」填一次即可——Key 只存在这台设备上，不会随备份导出。</div>
-      <div class="btn-row"><button class="btn" onclick="switchTab('more')">去配置</button></div></div>`;
+      <div class="muted">还没配置 AI 接口，请联系管理员在后台配置。</div>
+      <div class="muted mt8">AI 接口由管理员在后台统一配置。</div></div>`;
   }
   if(aiBusy[kind]) return `<div class="card">${head}<div class="muted">正在读你的数据…</div></div>`;
   if(aiErrors[kind]) return `<div class="card">${head}
@@ -570,48 +570,11 @@ function aiPlanCardHtml(){
     '把学情数据交给 AI，排出未来 7 天每天练什么、练多少、练多久。',
     '让 AI 排 7 天计划','aiPlan()');
 }
-function renderAiConfig(){
-  const c = window.AI ? window.AI.loadCfg() : {url:'',model:'',key:''};
-  return `<div class="card"><h3><span class="dot"></span>${ico('robot')} AI 接入</h3>
-    <div class="muted mb10">支持任何 OpenAI 兼容接口（DeepSeek、火山方舟、各类中转站）。接口地址要填到 <code>/v1/chat/completions</code> 为止。</div>
-    <div class="field"><label for="aiUrl">接口地址</label><input id="aiUrl" type="text" value="${esc(c.url)}" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
-    <div class="field"><label for="aiModel">模型名</label><input id="aiModel" type="text" value="${esc(c.model)}" placeholder="点下面的「获取模型列表」自动带出，也可手填"></div>
-    <div class="field"><label for="aiModelPick">可用模型</label>
-      <select id="aiModelPick" class="hidden" onchange="pickAiModel(this)"></select>
-      <div class="btn-row"><button class="btn" id="aiModelsBtn" onclick="fetchAiModels()">获取模型列表</button></div>
-    </div>
-    <div class="field"><label for="aiKey">API Key</label><input id="aiKey" type="password" value="${esc(c.key)}" placeholder="sk-..."></div>
-    <div class="btn-row">
-      <button class="btn primary" onclick="saveAiCfg()">保存</button>
-      <button class="btn" onclick="testAiCfg()">测试连接</button>
-    </div>
-    <div class="muted mt8">Key 只存在这台设备的浏览器里，<b>不会随「导出备份」导出</b>；学习数据也不会上传给 AI。</div>
-    <div class="field" style="margin-top:14px"><label for="aiImport">配置搬运：把别人给的配置粘贴到这里</label><textarea id="aiImport" rows="2" placeholder="ZSAI1:…（整段粘贴）"></textarea></div>
-    <div class="btn-row">
-      <button class="btn" onclick="importAiCfg()">导入配置</button>
-      <button class="btn" onclick="copyAiCfg()">复制我的配置</button>
-    </div>
-    <div class="muted mt8">在电脑上配好一次，点「复制我的配置」，把那段文本发给对方粘贴导入——对方就不用手敲地址和 Key 了。</div>
-  </div>`;
-}
-async function copyAiCfg(){
-  if(!window.AI) return;
-  const text=window.AI.exportCfg();
-  try{
-    await navigator.clipboard.writeText(text);
-    toast('配置已复制，发给对方粘贴导入即可','ok');
-  }catch(_){
-    const box=$('#aiImport');
-    if(box){ box.value=text; box.focus(); box.select(); }
-    toast('已填入下面的输入框，请手动复制','ok');
-  }
-}
 function importAiCfg(){
   if(!window.AI) return;
   try{
     const cfg=window.AI.importCfg($('#aiImport')?.value||'');
     toast('配置已导入：'+(cfg.model||'未命名模型'),'ok');
-    renderMore();
   }catch(e){
     toast(e?.message||'导入失败','error');
   }
@@ -868,8 +831,8 @@ function reviewDue(){
 }
 
 /* ---------- 视图路由 ---------- */
-const VIEWS=['dashboard','practice','daily','exam','wrongbook','shenlun','more','growth','ai','profile'];
-const ROUTE_SECTION={daily:'practice',exam:'practice',wrongbook:'practice',more:'profile'};
+const VIEWS=['dashboard','practice','daily','exam','wrongbook','shenlun','growth','ai'];
+const ROUTE_SECTION={daily:'practice',exam:'practice',wrongbook:'practice'};
 let activeRoute='dashboard';
 let growthTool='';        // 修业成长下的子页：'' | 'plan' | 'ability'，供 AI 回绘定位
 let navigationEpoch=0;
@@ -887,7 +850,7 @@ function switchTab(v){
 function renderView(v){
   stopAskRecognizers();
   $('#streakBadge').innerHTML=`连续学习 <b>${streakDays()}</b> 天`;
-  const map={dashboard:renderDash,practice:renderPractice,daily:renderDaily,exam:renderExamConfig,wrongbook:renderWrong,shenlun:renderShenlun,more:renderMore,growth:renderGrowth,ai:renderAi,profile:renderProfile};
+  const map={dashboard:renderDash,practice:renderPractice,daily:renderDaily,exam:renderExamConfig,wrongbook:renderWrong,shenlun:renderShenlun,growth:renderGrowth,ai:renderAi};
   $('#view').innerHTML=''; (map[v]||renderDash)(); window.scrollTo(0,0);
 }
 
@@ -907,12 +870,11 @@ function openGrowthTool(tool){
   if(tool==='ability') renderAnalysis();
   else if(tool==='plan') renderPlan();
   else if(tool==='wrong') switchTab('wrongbook');
-  else renderMore();
+  else renderDash();
 }
 function renderAi(){
   $('#view').innerHTML=`<header class="page-heading"><span>上岸小助手</span><h1>问不明白的</h1><p>它会解释，但不替代题库原始解析。</p></header>${renderAskComposer('ai')}<div class="notice">要问<b>具体某道题</b>，在答题页答完后、或逐题回顾里，题目下方会出现输入框——那里会带上题干、选项与题库原始解析。这一页适合问备考方法。</div>`;
 }
-function renderProfile(){ renderMore(); }
 
 const ASK_PROMPTS={
   home:['今天先练什么','帮我安排 30 分钟复习','我哪个模块最该补','数量关系总做不完怎么办'],
@@ -988,9 +950,9 @@ function renderAskComposer(context='home', q, chosen){
   const on=!!window.AI?.ready();
   const hint = context==='question'
     ? (on? '问题会连同这道题的题干、选项与题库原始解析一起发给已配置的 AI。'
-         : '尚未接入服务；到「设置 → AI 接入」填一次即可。')
+         : '尚未接入服务，接口由管理员在后台配置。')
     : (on? '问题会连同你的学情统计（模块正确率、用时、错因）一起发给已配置的 AI，不含题目与答案。'
-         : '尚未接入服务；到「设置 → AI 接入」填一次即可。');
+         : '尚未接入服务，接口由管理员在后台配置。');
   return `<section class="card ask-composer" data-context="${context}" aria-labelledby="ask-${context}-title">
     <div class="ask-head"><div><h3 id="ask-${context}-title"> 上岸小助手</h3><p>先问清，再练透。可输入文字，也可口述问题。</p></div><span class="tag">${on?'已接入 AI':'尚未接入服务'}</span></div>
     <div class="ask-chips">${prompts.map(p=>`<button type="button" class="ask-chip" onclick="fillAskPrompt('${context}','${inlineArg(p)}')">${esc(p)}</button>`).join('')}</div>
@@ -1010,7 +972,7 @@ async function sendAsk(context){
   const question=(input?.value||'').trim();
   if(!question){ if(status) status.textContent='请先输入想问的问题。'; input?.focus(); return; }
   if(!window.AI?.ready()){
-    if(status) status.textContent='还没配置 AI 接口——到「设置 → AI 接入」填一次即可；你的草稿已保留。';
+    if(status) status.textContent='还没配置 AI 接口（由管理员在后台配置）；你的草稿已保留。';
     return;
   }
   const ctx = context==='question'? askQuestionCtx() : null;
@@ -1114,11 +1076,17 @@ function renderDash(){
       <button class="btn" onclick="switchTab('shenlun')">看看申论</button>
     </div>
   </div>`:''}
-  ${backupStatus().warn? `<div class="card" style="border-left:3px solid var(--red)">
-    <h3><span class="dot"></span>该备份了</h3>
-    <div class="muted mb10">${backupStatus().text}</div>
-    <div class="btn-row"><button class="btn primary" onclick="exportData()">立即导出备份</button></div>
-  </div>`:''}`;
+  <div class="card"><h3><span class="dot"></span>数据管理</h3>
+    <div class="muted mb10" ${backupStatus().warn? 'style="color:var(--red)"':''}>${backupStatus().text}</div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="exportData()">导出备份</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()">导入备份</button>
+      <button class="btn red" onclick="confirmReset()">清空数据</button>
+      <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(this)">
+    </div>
+    <div class="muted mt8">数据保存在浏览器本地（localStorage）。导出为 JSON 文件可随时恢复或迁移到其他设备；若题目显示异常，<button type="button" class="link-btn" onclick="clearBankCache()">清理题库缓存</button>后重试。</div>
+  </div>
+`;
 }
 function last14Bars(){
   const days=store.stats.daily.slice(-14);
@@ -2032,7 +2000,7 @@ async function submitEssay(){
   const requirement=($('#essayReq')?.value||'').trim();
   const body=($('#essayBody')?.value||'').trim();
   if(body.length<200){ toast('作文太短了，至少 200 字再提交','error'); return; }
-  if(!window.AI?.ready()){ toast('请先到「设置 → AI 接入」配置接口','error'); return; }
+  if(!window.AI?.ready()){ toast('AI 接口还没配好，请联系管理员','error'); return; }
   const btn=$('#essayBtn'); if(btn){ btn.disabled=true; btn.textContent='批改中…'; }
   $('#essayResult').innerHTML='<div class="card"><div class="muted">AI 正在批改，长文可能要十几秒…</div></div>';
   try{
@@ -2152,27 +2120,8 @@ async function clearBankCache(){
     try{
       if(window.clearFullBankCache) await window.clearFullBankCache();
       toast('题库缓存已清理，下次访问将重新下载','ok');
-      if(currentView()==='more') renderMore();
     }catch(e){ toast(e?.message||'题库缓存清理失败','error'); }
   },'清理');
-}
-function renderMore(){
-  $('#view').innerHTML=`<header class="page-heading"><span>设置</span><h1>数据和偏好</h1><p>备份、AI 接入、背景、关于。</p></header>
-  ${renderAiConfig()}
-  <div class="card"><h3><span class="dot"></span>数据管理</h3>
-    <div class="muted mb10" ${backupStatus().warn? 'style="color:var(--red)"':''}>${backupStatus().text}</div>
-    <div class="btn-row">
-      <button class="btn" onclick="exportData()"> 导出备份</button>
-      <button class="btn" onclick="document.getElementById('importFile').click()"> 导入备份</button>
-      <button class="btn red" onclick="confirmReset()"> 清空数据</button>
-      <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(this)">
-    </div>
-    <div class="muted mt8">数据保存在浏览器本地（localStorage），导出为 JSON 文件可随时恢复或迁移到其他设备。</div>
-  </div>
-  <div class="card"><h3><span class="dot"></span>关于</h3>
-    <div class="muted">同舟共济 v2.21.0 — 公务员考试学习与成长平台。纯前端、题库持久缓存，学习数据默认保存在当前浏览器。</div>
-    <div class="notice mt14">学习记录留在当前浏览器。接入 AI 后，提问会发送给你自己配置的接口——逐题讲解还会带上该题的题干、选项与题库原始解析；首页与学情诊断发送的是统计（正确率、用时、错因），不含题目与答案。语音识别由浏览器提供，使用前会请求麦克风权限。</div>
-  </div>`;
 }
 function backupStatus(){
   const last=store.settings.lastExport||0;
@@ -2197,7 +2146,7 @@ function importData(input){
   reader.onload=e=>{ try{ const d=JSON.parse(e.target.result);
     const nextStore=normalizeStore(d,true);
     if(!save(nextStore)){ toast('导入失败：无法保存备份数据','error'); return; }
-    store=nextStore; toast('导入成功 ','ok'); renderView('more');
+    store=nextStore; toast('导入成功 ','ok'); renderView('dashboard');
   }catch(err){ toast('备份文件格式不正确','error'); } };
   reader.readAsText(f);
 }
@@ -2208,10 +2157,10 @@ function confirmReset(){
     const fillKeys=[];
     for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i); if(key?.startsWith('shangan_fill_')) fillKeys.push(key); }
     fillKeys.forEach(key=>localStorage.removeItem(key));
-    save(); renderView('more'); toast('学习数据、试卷和回填答案已清空');
+    save(); renderView('dashboard'); toast('学习数据、试卷和回填答案已清空');
   },'清空');
 }
-function toggleReview(){ store.settings.reviewOn=!store.settings.reviewOn; save(); renderMore(); }
+function toggleReview(){ store.settings.reviewOn=!store.settings.reviewOn; save(); renderWrong(); }
 
 /* ============ 答题引擎 ============ */
 let Q={list:[],idx:0,answers:{},marks:{},mode:'practice',start:0,limit:0,deadline:0,timer:null,elapsed:0,mods:[],context:'practice'};
@@ -2476,5 +2425,5 @@ window.renderEssay=renderEssay; window.submitEssay=submitEssay; window.toggleEss
 window.delEssay=delEssay; window.clearEssayForm=clearEssayForm;
 window.renderShenlunPapers=renderShenlunPapers; window.toggleSlMat=toggleSlMat;
 window.toggleSlAns=toggleSlAns; window.essayFromPaper=essayFromPaper;
-window.copyAiCfg=copyAiCfg; window.importAiCfg=importAiCfg;
+window.importAiCfg=importAiCfg;
 switchTab('dashboard');

@@ -29,10 +29,10 @@ with sync_playwright() as p:
     )
     check("品牌图标使用生成的小舟插画", page.locator('.brand-logo img[src*="logo-boat"]').count() == 1)
 
-    expected = ["首页", "行测", "申论", "成长", "上岸小助手", "设置"]
+    expected = ["首页", "行测", "申论", "成长", "上岸小助手"]
     labels = page.locator(".tabbar .tab").all_inner_texts()
     check("桌面一级导航顺序正确", labels == expected, str(labels))
-    check("桌面一级导航六项均可见", page.locator(".tabbar .tab:visible").count() == 6)
+    check("桌面一级导航五项均可见", page.locator(".tabbar .tab:visible").count() == 5)
 
     grouped = page.evaluate(
         """() => {
@@ -56,7 +56,7 @@ with sync_playwright() as p:
         })"""
     )
     check("移动端使用固定底栏", mobile["position"] == "fixed", str(mobile))
-    check("移动端底栏保留五项且顶部提供问泽", mobile["visible"] == ["首页", "行测", "申论", "成长", "设置"] and mobile["askVisible"], str(mobile))
+    check("移动端底栏保留五项且顶部提供问泽", mobile["visible"] == ["首页", "行测", "申论", "成长"] and mobile["askVisible"], str(mobile))
     check("390px 全局壳无横向溢出", mobile["overflow"], str(mobile))
     check("阶段1无JavaScript运行错误", not errors, str(errors[:5]))
     browser.close()

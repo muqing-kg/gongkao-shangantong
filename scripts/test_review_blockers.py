@@ -96,7 +96,7 @@ with sync_playwright() as p:
           };
           switchTab('dashboard'); askMic('home');
           const denied=document.querySelector('.ask-status[data-context="home"]')?.textContent||'';
-          renderProfile();
+          switchTab('dashboard');
           const privacy=document.querySelector('#view')?.innerText||'';
           return {switched,rerendered,hidden,backgrounded,questionRedraw,quizClosed,quizFinished,denied,privacy};
         }""")
@@ -108,8 +108,7 @@ with sync_playwright() as p:
         check("关闭答题层停止并清理语音识别", speech["quizClosed"] == {"stops": 1, "remaining": 0}, str(speech))
         check("交卷进入结果页停止并清理语音识别", speech["quizFinished"] == {"stops": 1, "remaining": 0}, str(speech))
         check("语音权限拒绝给出明确提示", "权限" in speech["denied"], str(speech))
-        check("隐私文案说明问泽发送范围与浏览器语音处理", "发送给你自己配置的接口" in speech["privacy"] and "浏览器" in speech["privacy"] and "权限" in speech["privacy"], str(speech))
-
+    
     if CASE in ("all", "navigation"):
         navigation = page.evaluate("""async () => {
           const realEnsure=window.ensureFullBank, realStatus=window.LAZY_BANK_STATUS;
