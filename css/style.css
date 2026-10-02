@@ -652,3 +652,31 @@ body{background-color:var(--bg)!important;background-image:
 /* 管理员留言（显示在她的首页） */
 .love-note{border-left:3px solid var(--clay)!important;background:linear-gradient(145deg,#FFF9F2,#FDF3E8)!important}
 .love-note h3{color:var(--clay)!important}
+
+
+/* ==========================================================================
+   AI 输出的 Markdown 渲染（mdToHtml 产出 .md-* 结构）
+   之前一条规则都没有，所以列表没序号、没缩进、没行距，读起来是一坨。
+   ========================================================================== */
+.md-p{font-size:14.5px;line-height:1.85;color:var(--ink);margin:0 0 2px}
+.md-gap{height:9px}
+.md-h{font-family:var(--font-title,"Songti SC",serif);color:#3F3025;line-height:1.5;margin:14px 0 6px;letter-spacing:.02em}
+.md-h1{font-size:18px}.md-h2{font-size:16.5px}.md-h3{font-size:15px}.md-h4{font-size:14.5px}
+.md-ul,.md-ol{margin:6px 0 10px;padding-left:22px;font-size:14.5px;line-height:1.85;color:var(--ink)}
+.md-ul{list-style:none;padding-left:20px}
+.md-ol{list-style:decimal}
+.md-ol>li::marker{color:var(--clay);font-weight:700}
+.md-ul>li{position:relative}
+.md-ul>li::before{content:"";position:absolute;left:-13px;top:.72em;width:5px;height:5px;
+  border-radius:50%;background:var(--clay-2)}
+.md-ol>li,.md-ul>li{margin:0 0 9px;padding-left:3px}
+.md-ol>li:last-child,.md-ul>li:last-child{margin-bottom:2px}
+.md-p b,.md-ol b,.md-ul b{color:#3F3025;font-weight:600}
+/* 列表项里的粗体标题独占一行，读起来才有层次 */
+.md-ol>li>b:first-child,.md-ul>li>b:first-child{display:block;margin-bottom:2px;color:var(--clay)}
+.md-quote{margin:8px 0;padding:9px 13px;border-left:3px solid var(--clay-2);
+  background:rgba(247,228,218,.42);border-radius:0 9px 9px 0;font-size:14px;line-height:1.8;color:var(--ink-2)}
+.md-p code,.md-ol code,.md-ul code{background:#F3EADB;border-radius:5px;padding:1px 6px;
+  font-size:13px;font-family:ui-monospace,"SF Mono",monospace}
+/* 结尾的「AI 生成 · 仅供参考」这类小字 */
+.md-p:last-child{color:var(--ink-2);font-size:13px}

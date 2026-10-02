@@ -860,7 +860,7 @@ function renderGrowth(){
   <section class="academy-grid">
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/stopwatch.png" alt=""></span><h3>学习计划</h3><p>${planSummaryText()}</p><button class="btn primary" onclick="openGrowthTool('plan')">查看计划</button></article>
     <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/analyze.png" alt=""></span><h3>能力图谱</h3><p>基于 ${total} 次作答，梳理模块、考点、难度、来源和用时表现。</p><button class="btn primary" onclick="openGrowthTool('ability')">能力图谱</button></article>
-    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/review.png" alt=""></span><h3>错题温习</h3><p>按 1 / 2 / 4 / 7 / 15 天节奏复习，今日到期 ${due.length} 题。</p><button class="btn" onclick="openGrowthTool('wrong')">错题温习</button></article>
+    <article class="card feature-card"><span class="feature-mark"><img class="mark-img" src="assets/illus/mark/review.png" alt=""></span><h3>错题温习</h3><p>按 1 / 2 / 4 / 7 / 15 天节奏复习，今日到期 ${due.length} 题。</p><button class="btn primary" onclick="openGrowthTool('wrong')">错题温习</button></article>
     
   </section>
   <section class="card growth-summary"><h3><span class="dot"></span>当前修业小结</h3><div class="hero-stats"><div class="hs"><b>${total}</b><span>作答记录</span></div><div class="hs"><b>${total?Math.round(correct/total*100):0}%</b><span>近期正确率</span></div><div class="hs"><b>${streakDays()}</b><span>连续学习</span></div></div></section>`;
