@@ -20,7 +20,7 @@ CHROME = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
 # 首屏允许同步加载的脚本；questions5/7/8.js 出现在这里即为回归。
 # 题库只收真题后，首屏只剩「六个模块的空结构」这一个数据脚本。
 FIRST_PAINT_ALLOWED = {
-    'questions.js', 'icons.js', 'lazy-bank.js', 'shenlun.js', 'ai.js', 'app.js',
+    'questions.js', 'icons.js', 'lazy-bank.js', 'shenlun.js', 'ai.js', 'app.js',    'sync.js',
 }
 FIRST_PAINT_BUDGET_MB = 1.5
 BASE_QUESTIONS = 0

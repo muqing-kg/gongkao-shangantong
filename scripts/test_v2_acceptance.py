@@ -19,7 +19,13 @@ with sync_playwright() as p:
     page = ctx.new_page()
     js_errors = []
     page.on('pageerror', lambda e: js_errors.append(str(e)))
-    page.on('console', lambda m: js_errors.append(m.text) if m.type == 'error' else None)
+    def _on_console2(m):
+        if m.type != 'error':
+            return
+        if '/api/' in ((m.location or {}).get('url') or ''):
+            return
+        js_errors.append(m.text)
+    page.on('console', _on_console2)
     page.goto(URL, wait_until='domcontentloaded', timeout=180000)
     # 首屏 HTML 不应同步引用 questions6 超大单文件，且应接入分片懒加载器
     direct = page.evaluate("""() => [...document.scripts].some(s => s.getAttribute('src') === 'js/questions6.js')""")

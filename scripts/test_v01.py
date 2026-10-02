@@ -67,7 +67,14 @@ with sync_playwright() as p:
     browser = p.chromium.launch(executable_path=CHROME, headless=True, args=['--no-sandbox'])
     ctx = browser.new_context(viewport={'width':420,'height':900})
     page = ctx.new_page()
-    page.on('console', lambda m: errors.append(f'console[{m.type}]: {m.text}') if m.type=='error' else None)
+    def _on_console(m):
+        # 纯静态测试环境没有后端，api/ 探测的 404 属预期，不算 JS 错误
+        if m.type != 'error':
+            return
+        if '/api/' in ((m.location or {}).get('url') or ''):
+            return
+        errors.append(f'console[{m.type}]: {m.text}')
+    page.on('console', _on_console)
     page.on('pageerror', lambda e: errors.append(f'pageerror: {e}'))
     page.goto(URL, wait_until='networkidle')
     # 题库加载完成时若停在首页会自动 renderDash()，会覆盖直接渲染的视图；先等题库就绪以消除该竞态

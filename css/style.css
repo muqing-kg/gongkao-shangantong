@@ -647,3 +647,8 @@ body{background-color:var(--bg)!important;background-image:
   radial-gradient(58% 26% at 88% 0%,rgba(243,199,174,.45),transparent 70%),
   radial-gradient(52% 24% at 0% 14%,rgba(240,214,190,.40),transparent 72%)!important;
   background-attachment:fixed!important}
+
+
+/* 管理员留言（显示在她的首页） */
+.love-note{border-left:3px solid var(--clay)!important;background:linear-gradient(145deg,#FFF9F2,#FDF3E8)!important}
+.love-note h3{color:var(--clay)!important}

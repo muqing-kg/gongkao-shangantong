@@ -33,7 +33,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
    换成 SQLite 也很容易，接口不变。 */
 function loadDb() {
   try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
-  catch { return { users: {}, sessions: {}, progress: null, config: {}, messages: [], goals: {} }; }
+  catch { return { users: {}, sessions: {}, progress: null, config: {}, messages: [], goals: {}, activity: [] }; }
 }
 function saveDb(db) {
   const tmp = DB_FILE + '.tmp';
@@ -140,14 +140,25 @@ const server = http.createServer(async (req, res) => {
       noteAttempt(ip);
 
       const body = JSON.parse(await readBody(req) || '{}');
-      const want = body.role === 'admin' ? 'admin' : 'user';
-      const rec = db.users[want];
-      if (!rec) return sendJson(res, 400, { error: '还没设置密码，请在服务器上执行 node server/set-password.js' });
-      if (!verifyPassword(String(body.password || ''), rec)) {
+      const password = String(body.password || '');
+      // 前端只传一个密码；这里自动判定身份。先试显式 role（兼容旧调用），再两个都试。
+      let role = null;
+      const order = body.role === 'admin' ? ['admin', 'user']
+                  : body.role === 'user' ? ['user', 'admin']
+                  : ['admin', 'user'];
+      for (const r of order) {
+        if (db.users[r] && verifyPassword(password, db.users[r])) { role = r; break; }
+      }
+      if (!role) {
+        if (!db.users.user && !db.users.admin) {
+          return sendJson(res, 400, { error: '还没设置密码，请在服务器上执行 node server/set-password.js' });
+        }
         return sendJson(res, 401, { error: '密码不对' });
       }
-      const s = newSession(want);
-      return sendJson(res, 200, { ok: true, role: want, expires: s.expires },
+      const s = newSession(role);
+      db.users[role].lastLoginAt = Date.now();
+      saveDb(db);
+      return sendJson(res, 200, { ok: true, role, expires: s.expires },
         { 'Set-Cookie': sessionCookie(s.token, s.expires) });
     }
 
@@ -167,8 +178,14 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET') return sendJson(res, 200, db.progress || {});
       if (req.method === 'PUT') {
         if (sess.role !== 'user' && sess.role !== 'admin') return sendJson(res, 403, { error: '无权' });
-        db.progress = JSON.parse(await readBody(req) || '{}');
+        const incoming = JSON.parse(await readBody(req) || '{}');
+        // 记录活跃轨迹：首次同步与每次心跳都留痕，供后台看「什么时候在学」
+        db.activity = db.activity || [];
+        db.activity.push({ at: Date.now(), answered: Number(incoming.answered) || 0 });
+        if (db.activity.length > 2000) db.activity = db.activity.slice(-2000);
+        db.progress = incoming;
         db.progress.updatedAt = Date.now();
+        db.progress.lastActiveAt = Date.now();
         saveDb(db);
         return sendJson(res, 200, { ok: true, updatedAt: db.progress.updatedAt });
       }
@@ -226,6 +243,44 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (p === '/api/admin/activity') {
+      if (!sess || sess.role !== 'admin') return sendJson(res, 403, { error: '仅管理员' });
+      const pr = db.progress || {};
+      const daily = (pr.daily || []).slice(-30);
+      // 把活跃轨迹按天聚合，得出「每天在哪些时段用过」
+      const byDay = {};
+      for (const a of (db.activity || [])) {
+        const d = new Date(a.at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        (byDay[key] = byDay[key] || []).push(a.at);
+      }
+      const days = Object.entries(byDay).map(([date, ats]) => {
+        ats.sort((x, y) => x - y);
+        const rec = daily.find(d => d.date === date) || {};
+        // 相邻两次心跳间隔 <= 5 分钟算连续学习
+        let sec = 0;
+        for (let i = 1; i < ats.length; i++) {
+          const gap = (ats[i] - ats[i - 1]) / 1000;
+          if (gap <= 300) sec += gap;
+        }
+        return {
+          date,
+          visits: ats.length,
+          firstAt: ats[0],
+          lastAt: ats[ats.length - 1],
+          minutes: Math.round(sec / 60),
+          answered: Number(rec.answered) || 0,
+          correct: Number(rec.correct) || 0,
+        };
+      }).sort((a, b) => b.date.localeCompare(a.date));
+      return sendJson(res, 200, {
+        lastActiveAt: pr.lastActiveAt || pr.updatedAt || 0,
+        lastLoginAt: Math.max(db.users?.user?.lastLoginAt || 0, db.users?.admin?.lastLoginAt || 0),
+        days,
+        totalMinutes: days.reduce((n, d) => n + d.minutes, 0),
+      });
+    }
+
     if (p === '/api/admin/ai') {
       if (!sess || sess.role !== 'admin') return sendJson(res, 403, { error: '仅管理员' });
       if (req.method === 'GET') {
@@ -254,6 +309,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ===== 静态资源 ===== */
+    // 未登录时，受保护的页面一律送去登录页
+    const PROTECTED = ['/', '/index.html', '/admin.html'];
+    if (PROTECTED.includes(p)) {
+      if (!sess) return send(res, 302, '', { Location: '/login.html' });
+      // 学习端不让进后台，管理端不让进学习页（各走各的）
+      if (p === '/admin.html' && sess.role !== 'admin') return send(res, 302, '', { Location: '/index.html' });
+      if (p !== '/admin.html' && sess.role === 'admin') return send(res, 302, '', { Location: '/admin.html' });
+    }
     let file = p === '/' ? '/index.html' : p;
     // 防目录穿越
     const abs = path.normalize(path.join(ROOT, file));

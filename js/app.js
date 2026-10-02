@@ -2413,6 +2413,8 @@ window.renderAnalysis=renderAnalysis; window.smartQuiz=smartQuiz;
 window.doSearch=doSearch; window.searchDebounced=searchDebounced; window.startSearchResult=startSearchResult; window.exportFiltered=exportFiltered; window.printFiltered=printFiltered;
 window.exportData=exportData; window.importData=importData; window.confirmReset=confirmReset; window.clearBankCache=clearBankCache;
 window.toggleReview=toggleReview;
+/* 给同步脚本读取当前状态（只读，不修改） */
+window.getStore=()=>store; window.getStreak=()=>streakDays();
 window.reviewQuiz=reviewQuiz; window.reviewNav=reviewNav; window.closeResult=closeResult;
 window.fillAskPrompt=fillAskPrompt; window.sendAsk=sendAsk; window.askMic=askMic;
 window.openGrowthTool=openGrowthTool;

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>同舟共济 · 管理后台</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<meta name="theme-color" content="#F8EFE2">
+<style>
+:root{
+  --paper:#F8EFE2;--card:#FDF8EE;--line:#EADDC9;
+  --clay:#C08468;--clay-2:#DBAE9A;--clay-soft:#F7E4DA;
+  --sage:#6E7F52;--blue:#5E7C92;--gold:#9A6B3F;
+  --ink:#4A3B2E;--ink-2:#8A7461;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  color:var(--ink);background:var(--paper);
+  background-image:
+    radial-gradient(58% 26% at 88% 0%,rgba(243,199,174,.45),transparent 70%),
+    radial-gradient(52% 24% at 0% 14%,rgba(240,214,190,.40),transparent 72%);
+  background-attachment:fixed;
+  padding:26px 20px 60px;
+}
+.wrap{max-width:1080px;margin:0 auto}
+header.top{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+header.top img{width:52px;height:52px}
+header.top h1{font-family:"STKaiti","KaiTi",serif;font-size:24px;letter-spacing:2px;margin:0;color:#3F3025}
+header.top .tag{margin-left:auto;display:flex;gap:8px;align-items:center}
+.pill{background:var(--clay-soft);color:var(--clay);border-radius:999px;padding:5px 13px;font-size:12.5px}
+.pill.gray{background:#EFE7DA;color:var(--ink-2)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:17px 18px;box-shadow:0 4px 16px rgba(147,107,86,.06)}
+.stat .k{font-size:12.5px;color:var(--ink-2);margin-bottom:7px}
+.stat .v{font-size:27px;font-weight:700;line-height:1.15;color:#3F3025}
+.stat .v small{font-size:13px;font-weight:400;color:var(--ink-2);margin-left:3px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(147,107,86,.06)}
+.card h2{font-size:15.5px;margin:0 0 15px;color:#3F3025;display:flex;align-items:center;gap:8px}
+.card h2::before{content:"";width:4px;height:15px;border-radius:2px;background:var(--clay)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-weight:500;color:var(--ink-2);font-size:12.5px;padding:7px 8px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid rgba(234,221,201,.55)}
+tr:last-child td{border-bottom:0}
+.bar{height:7px;border-radius:4px;background:#EFE7DA;overflow:hidden;min-width:70px}
+.bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--clay-2),var(--clay))}
+.empty{color:var(--ink-2);font-size:13.5px;padding:14px 0;text-align:center}
+label{display:block;font-size:12.5px;color:var(--ink-2);margin:0 0 6px}
+input[type=text],input[type=password]{width:100%;height:44px;padding:0 13px;font-size:14.5px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:11px;outline:none}
+input:focus{border-color:var(--clay-2);box-shadow:0 0 0 3px rgba(219,174,154,.26)}
+.field{margin-bottom:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{height:44px;padding:0 20px;border:0;border-radius:11px;cursor:pointer;font-size:14px;font-weight:600;color:#fff;background:linear-gradient(145deg,var(--clay-2),var(--clay));box-shadow:0 4px 14px rgba(192,132,104,.24)}
+button.ghost{background:#fff;color:var(--ink-2);border:1px solid var(--line);box-shadow:none;font-weight:400}
+button:disabled{opacity:.6;cursor:default}
+.msg{margin-top:11px;font-size:13px;min-height:18px;color:var(--sage)}
+.msg.err{color:#C9553F}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#8FBF6E;margin-right:6px;vertical-align:middle}
+.dot.off{background:#D9C9B4}
+.timeline{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.timeline span{font-size:11px;color:var(--ink-2);background:#F3EADB;border-radius:5px;padding:2px 6px}
+@media(max-width:600px){
+  body{padding:18px 13px 48px}
+  .stat .v{font-size:23px}
+  .card{padding:17px 15px}
+  th:nth-child(4),td:nth-child(4){display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img src="assets/logo-mark.png" alt="">
+    <h1>管理后台</h1>
+    <div class="tag">
+      <span class="pill" id="whoami">管理员</span>
+      <button class="ghost" id="logout" style="height:34px;padding:0 14px;font-size:13px">退出</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="stat"><div class="k">最后活跃</div><div class="v" id="lastActive">—</div></div>
+    <div class="stat"><div class="k">累计做题</div><div class="v" id="total">—</div></div>
+    <div class="stat"><div class="k">总正确率</div><div class="v" id="acc">—</div></div>
+    <div class="stat"><div class="k">累计学习时长</div><div class="v" id="minutes">—</div></div>
+  </div>
+
+  <div class="card">
+    <h2>学习动态（近 30 天）</h2>
+    <div id="activity"><div class="empty">加载中…</div></div>
+  </div>
+
+  <div class="card">
+    <h2>模块掌握度（从弱到强）</h2>
+    <div id="modules"><div class="empty">加载中…</div></div>
+  </div>
+
+  <div class="card">
+    <h2>系统配置 · AI 服务</h2>
+    <p style="margin:0 0 15px;font-size:13px;color:var(--ink-2);line-height:1.7">
+      支持任何 OpenAI 兼容接口（DeepSeek、火山方舟、各类中转站）。地址填到 <code>/v1/chat/completions</code> 为止。
+      Key 只存在服务器上，学习端拿不到。
+    </p>
+    <div class="field"><label for="aiUrl">接口地址</label><input id="aiUrl" type="text" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
+    <div class="field"><label for="aiModel">模型名</label><input id="aiModel" type="text" placeholder="deepseek-chat"></div>
+    <div class="field"><label for="aiKey">API Key<span id="keyHint" style="color:var(--ink-2);font-weight:400"></span></label><input id="aiKey" type="password" placeholder="留空表示不修改"></div>
+    <div class="row">
+      <button id="saveAi">保存配置</button>
+      <button class="ghost" id="testAi">测试连接</button>
+    </div>
+    <div class="msg" id="aiMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>给她的一句话</h2>
+    <div class="field"><label for="msgText">显示在她的首页</label><input id="msgText" type="text" maxlength="120" placeholder="例如：今天也一起"></div>
+    <button id="saveMsg">保存</button>
+    <div class="msg" id="msgOut"></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api = async (path, opt = {}) => {
+  const r = await fetch(path, Object.assign({ credentials: 'same-origin' }, opt));
+  if (r.status === 401 || r.status === 403) { location.replace('login.html'); throw new Error('未登录'); }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || '请求失败');
+  return d;
+};
+const ago = ts => {
+  if (!ts) return '从未';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return '刚刚';
+  if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
+  if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
+  return Math.floor(s / 86400) + ' 天前';
+};
+const hm = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+const dayLabel = ds => { const [,m,d] = ds.split('-'); return `${+m}/${+d}`; };
+
+async function loadOverview() {
+  const d = await api('api/admin/overview');
+  $('#lastActive').innerHTML = esc(ago(d.updatedAt));
+  $('#total').innerHTML = (d.total || 0) + '<small>题</small>';
+  $('#acc').innerHTML = (d.accuracy || 0) + '<small>%</small>';
+  const mods = d.modules || [];
+  $('#modules').innerHTML = mods.length ? `<table><thead><tr><th>模块</th><th>题量</th><th>正确率</th><th style="width:34%">掌握度</th></tr></thead><tbody>${
+    mods.map(m => `<tr><td>${esc(m.mod)}</td><td>${m.n}</td><td>${m.acc}%</td>
+      <td><div class="bar"><i style="width:${m.acc}%"></i></div></td></tr>`).join('')
+  }</tbody></table>` : '<div class="empty">还没有练习记录</div>';
+}
+
+async function loadActivity() {
+  const d = await api('api/admin/activity');
+  $('#minutes').innerHTML = (d.totalMinutes || 0) + '<small>分钟</small>';
+  $('#lastActive').innerHTML = esc(ago(d.lastActiveAt));
+  const days = d.days || [];
+  if (!days.length) { $('#activity').innerHTML = '<div class="empty">还没有学习记录</div>'; return; }
+  $('#activity').innerHTML = `<table><thead><tr><th>日期</th><th>时段</th><th>时长</th><th>做题</th></tr></thead><tbody>${
+    days.slice(0, 14).map(x => {
+      // 把当天的心跳时间聚成几个时段
+      const slots = [];
+      const first = new Date(x.firstAt), last = new Date(x.lastAt);
+      slots.push(hm(x.firstAt));
+      if (last - first > 3600e3) slots.push(hm(x.lastAt));
+      return `<tr>
+        <td>${dayLabel(x.date)}</td>
+        <td><span class="timeline">${slots.map(s => `<span>${s}</span>`).join('')}</span></td>
+        <td>${x.minutes} 分钟</td>
+        <td>${x.answered} 题</td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+async function loadAi() {
+  const d = await api('api/admin/ai');
+  $('#aiUrl').value = d.url || '';
+  $('#aiModel').value = d.model || '';
+  $('#keyHint').textContent = d.hasKey ? '（已配置，留空不改）' : '（未配置）';
+}
+
+$('#saveAi').onclick = async () => {
+  const m = $('#aiMsg'); m.className = 'msg'; m.textContent = '保存中…';
+  try {
+    await api('api/admin/ai', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: $('#aiUrl').value, model: $('#aiModel').value, key: $('#aiKey').value }),
+    });
+    $('#aiKey').value = '';
+    m.textContent = '已保存';
+    loadAi();
+  } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
+};
+
+$('#testAi').onclick = async () => {
+  const m = $('#aiMsg'); m.className = 'msg'; m.textContent = '测试中…';
+  try {
+    await api('api/admin/ai', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: $('#aiUrl').value, model: $('#aiModel').value, key: $('#aiKey').value }),
+    });
+    const r = await fetch('api/ai', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: $('#aiModel').value, messages: [{ role: 'user', content: '只回复两个字：可用' }], max_tokens: 24 }),
+    });
+    m.className = r.ok ? 'msg' : 'msg err';
+    m.textContent = r.ok ? '连接正常，模型已响应' : '连接失败（HTTP ' + r.status + '）';
+    $('#aiKey').value = '';
+  } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
+};
+
+$('#saveMsg').onclick = async () => {
+  const m = $('#msgOut'); m.className = 'msg'; m.textContent = '保存中…';
+  try {
+    await api('api/message', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: $('#msgText').value }),
+    });
+    m.textContent = '已保存，她会看到';
+  } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
+};
+
+$('#logout').onclick = async () => {
+  await fetch('api/logout', { method: 'POST', credentials: 'same-origin' });
+  location.replace('login.html');
+};
+
+(async () => {
+  try {
+    const me = await api('api/me');
+    if (me.role !== 'admin') { location.replace('index.html'); return; }
+    await Promise.all([loadOverview(), loadActivity(), loadAi()]);
+    const msg = await api('api/message').catch(() => ({ text: '' }));
+    $('#msgText').value = msg.text || '';
+    setInterval(() => { loadOverview().catch(() => {}); loadActivity().catch(() => {}); }, 60000);
+  } catch (e) {
+    if (e.message !== '未登录') $('#activity').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- 同舟共济 · 站点图标：暖米圆底 + 陶土小舟 + 水波 -->
+  <rect width="64" height="64" rx="14" fill="#F8EFE2"/>
+  <circle cx="32" cy="30" r="21" fill="#FDF8EE"/>
+  <!-- 水波 -->
+  <path d="M8 43c4-2.6 7.4-2.6 11.4 0S27 45.6 31 43s7.4-2.6 11.4 0S50 45.6 54 43"
+        fill="none" stroke="#9DB8CC" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M13 50c3.4-2.2 6.3-2.2 9.7 0s6.3 2.2 9.7 0 6.3-2.2 9.7 0 6.3 2.2 9.7 0"
+        fill="none" stroke="#9DB8CC" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+  <!-- 船身 -->
+  <path d="M16 33h32l-4.6 8.6a4 4 0 0 1-3.5 2H24.1a4 4 0 0 1-3.5-2z"
+        fill="#DBAE9A" stroke="#C08468" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M20 33h24" stroke="#C08468" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- 桨 -->
+  <path d="M18.5 27.5 12 38" stroke="#9A6B3F" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M45.5 27.5 52 38" stroke="#9A6B3F" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- 人影 -->
+  <circle cx="32" cy="21.4" r="4.4" fill="#F6E2C8" stroke="#8A7461" stroke-width="2"/>
+  <path d="M24.8 33c0-4.4 3.2-7.4 7.2-7.4s7.2 3 7.2 7.4z" fill="#EFD9C0" stroke="#8A7461" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 草帽 -->
+  <path d="M23.6 16.4h16.8" stroke="#CF9E6D" stroke-width="3" stroke-linecap="round"/>
+  <path d="M27 16.4a5 5 0 0 1 10 0z" fill="#E8C88C" stroke="#CF9E6D" stroke-width="1.8" stroke-linejoin="round"/>
+</svg>
