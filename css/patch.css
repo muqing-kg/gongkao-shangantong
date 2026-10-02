@@ -1,0 +1,58 @@
+/* ==========================================================================
+   补齐审查中发现的缺失样式
+   这些类名 JS 里一直在用，但 CSS 里一条规则都没有：
+   能力图谱的柱状图、错因标注、题目来源、成长小结、间距工具类、
+   内联文字按钮、小号按钮 —— 之前都是裸样式渲染。
+   ========================================================================== */
+
+/* ---------- 1. 能力图谱 · 近 14 天柱状图 ---------- */
+.rb-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:30px}
+.rb-bar{width:20px;border-radius:5px 5px 2px 2px;min-height:4px;
+  transition:height .3s ease,filter .15s ease}
+.rb-col:hover .rb-bar{filter:brightness(1.06)}
+.rb-day{font-size:10px;color:var(--ink-2);white-space:nowrap;letter-spacing:-.02em}
+.rb-num{font-size:10px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* ---------- 2. 错因标注（答题回顾里问「这题为什么错」） ---------- */
+.why-box{margin-top:12px;padding:14px 16px;border:1px solid var(--line);
+  border-radius:14px;background:linear-gradient(180deg,#FFFCF6,#FDF6EE)}
+.why-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.why-chip{padding:7px 15px;border:1px solid var(--line);border-radius:999px;
+  background:#fff;color:var(--ink-2);font-size:13.5px;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s,transform .1s}
+.why-chip:hover{border-color:var(--clay-2);color:var(--clay)}
+.why-chip:active{transform:translateY(1px)}
+.why-chip.on{background:linear-gradient(145deg,var(--clay-2),var(--clay));
+  border-color:transparent;color:#fff;font-weight:600;
+  box-shadow:0 3px 10px rgba(192,132,104,.26)}
+.why-box b{color:var(--clay)}
+
+/* ---------- 3. 题目来源标注 ---------- */
+.src-note{margin-top:10px;padding:7px 12px;border-radius:9px;
+  background:rgba(234,221,201,.42);color:var(--ink-2);
+  font-size:11.5px;line-height:1.7;letter-spacing:.01em}
+
+/* ---------- 4. 成长页小结卡 ---------- */
+.growth-summary{background:linear-gradient(150deg,#FFFDF8,#FBF3E7)!important;
+  border-color:var(--line)!important}
+.growth-summary h3{color:#3F3025}
+
+/* ---------- 5. 间距工具类 ---------- */
+.mt12{margin-top:12px}
+
+/* ---------- 6. 内联文字按钮（设置页的次要操作） ---------- */
+.link-btn{background:none;border:0;padding:0;color:var(--clay);
+  font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.link-btn:hover{color:var(--clay-2)}
+
+/* ---------- 7. 小号按钮 ---------- */
+.btn.small{flex:0 0 auto;padding:7px 15px;font-size:13px;border-radius:10px}
+.btn-row .btn.small{min-width:0}
+
+/* ---------- 移动端 ---------- */
+@media(max-width:767px){
+  .rb-col{min-width:26px}
+  .rb-bar{width:17px}
+  .why-chip{padding:6px 13px;font-size:13px}
+  .why-box{padding:12px 13px}
+}
