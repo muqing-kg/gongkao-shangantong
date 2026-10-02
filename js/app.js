@@ -1026,7 +1026,7 @@ function renderAskComposer(context='home', q, chosen){
     <div class="ask-head"><div><h3 id="ask-${context}-title"> 上岸小助手</h3><p>先问清，再练透。可输入文字，也可口述问题。</p></div><span class="tag">${on?'已接入 AI':'尚未接入服务'}</span></div>
     <div class="ask-chips">${prompts.map(p=>`<button type="button" class="ask-chip" onclick="fillAskPrompt('${context}','${inlineArg(p)}')">${esc(p)}</button>`).join('')}</div>
     <div class="ask-row">
-      <button type="button" class="ask-mic" data-mic="${context}" aria-label="语音输入" aria-pressed="false" onclick="askMic('${context}')"></button>
+      <button type="button" class="ask-mic" data-mic="${context}" aria-label="语音输入" aria-pressed="false" onclick="askMic('${context}')"><img class="ask-mic-img" src="assets/illus/tile/mic.png" alt=""></button>
       <textarea id="ask-${context}" rows="2" aria-label="向上岸小助手提问" placeholder="把不明白的地方说给它听……"></textarea>
       <button type="button" class="ask-send" data-send="${context}" onclick="sendAsk('${context}')">发送</button>
     </div>
@@ -1101,7 +1101,7 @@ function renderDash(){
   const V=$('#view');
   V.innerHTML=`
   <div class="hero">
-    <h1>致泽学堂 · 今日备考</h1>
+    <h1>同舟共济 · 今日备考</h1>
     <div class="sub">${ci.answered? `今日已练 ${ci.answered} 题，正确 ${ci.correct} 题`:'今日还没开始，刷几题保持手感吧！'}</div>
     <div class="hero-stats">
       <div class="hs"><b>${store.stats.answered}</b><span>累计做题</span></div>
@@ -1115,10 +1115,10 @@ function renderDash(){
     <button class="gb" onclick="quickStart('每日一练')"><span class="gi"><img src="assets/illus/tile/daily.png" alt=""></span><span class="gt">每日一练</span></button>
     <button class="gb" onclick="quickStart('随机刷题')"><span class="gi"><img src="assets/illus/tile/random.png" alt=""></span><span class="gt">随机刷题</span></button>
     <button class="gb" onclick="quickStart('错题重练')"><span class="gi"><img src="assets/illus/tile/wrong.png" alt=""></span><span class="gt">错题重练</span></button>
-    <button class="gb" onclick="quickStart('模拟考试')"><span class="gi"></span><span class="gt">模拟考试</span></button>
+    <button class="gb" onclick="quickStart('模拟考试')"><span class="gi"><img src="assets/illus/tile/clock.png" alt=""></span><span class="gt">模拟考试</span></button>
     <button class="gb" onclick="switchTab('exam')"><span class="gi"><img src="assets/illus/tile/paper.png" alt=""></span><span class="gt">智能组卷</span></button>
-    <button class="gb" onclick="renderFillback()"><span class="gi"></span><span class="gt">答案回填</span></button>
-    <button class="gb" onclick="renderAnalysis()"><span class="gi"></span><span class="gt">能力分析</span></button>
+    <button class="gb" onclick="renderFillback()"><span class="gi"><img src="assets/illus/tile/inbox.png" alt=""></span><span class="gt">答案回填</span></button>
+    <button class="gb" onclick="renderAnalysis()"><span class="gi"><img src="assets/illus/tile/chart.png" alt=""></span><span class="gt">能力分析</span></button>
   </div>
   <div class="card">
     <h3><span class="dot"></span>模块掌握度</h3>

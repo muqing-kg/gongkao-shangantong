@@ -413,3 +413,93 @@ html[data-scene="none"] body{background-image:none}
 .grid-btns .gb .gi img{width:26px;height:26px;object-fit:contain}
 .mod-ico{width:24px;height:24px;object-fit:contain;vertical-align:middle}
 .q-tag .mod-ico{width:20px;height:20px}
+/* ==========================================================================
+   同舟共济 · 水彩配色（取自目标图的真实像素值）
+   覆盖 v2.4 的深蓝金，其余结构不动
+   ========================================================================== */
+:root{
+  --paper:#F8EFE2;--paper-2:#F3E8D8;--paper-3:#EBDFC9;
+  --clay:#C08468;--clay-2:#DBAE9A;--clay-soft:#F7E4DA;
+  --honey:#CF9E6D;--honey-soft:#F8E7C4;
+  /* 覆盖 v2.4 变量名 */
+  --navy:#C08468;--navy-2:#A8724F;--navy-3:#F7E4DA;
+  --gold:#CF9E6D;--gold-2:#F8E7C4;
+  --ink:#4A3B2E;--ink-2:#8A7461;--line:#EADDC9;
+  --bg:#F8EFE2;--card:rgba(253,248,238,.96);
+  /* 四个方块 */
+  --t1:#FBE1D7;--t2:#E4E8CF;--t3:#E3EAEA;--t4:#F8E7C4;
+  --i1:#C9553F;--i2:#6E7F52;--i3:#5E7C92;--i4:#9A6B3F;
+}
+body{background-color:var(--bg)!important;background-image:
+  radial-gradient(58% 26% at 88% 0%,rgba(243,199,174,.55),transparent 70%),
+  radial-gradient(52% 24% at 0% 14%,rgba(240,214,190,.48),transparent 72%),
+  radial-gradient(70% 30% at 50% 102%,rgba(250,236,219,.65),transparent 74%)!important;background-attachment:fixed}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.3;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E")}
+/* 侧栏改暖白 */
+.sidebar{background:linear-gradient(180deg,rgba(253,248,238,.96),rgba(248,239,226,.92))!important;border-right:1px solid var(--line)}
+.brand-name strong{color:#3F3025!important}
+.sidebar .tab{color:var(--ink-2)!important}
+.sidebar .tab.active{color:#fff!important;background:linear-gradient(145deg,var(--clay-2),var(--clay))!important;box-shadow:0 6px 16px rgba(192,132,104,.26)!important}
+.sidebar-motto q{color:var(--clay)!important}
+/* 顶部栏 */
+.main-shell .topbar{background:rgba(253,248,238,.84)!important;border-bottom:1px solid var(--line)!important;color:var(--ink)!important}
+.mobile-brand{color:#3F3025!important}
+.streak-badge{background:var(--clay-soft)!important;color:var(--clay)!important;border:none!important}
+.streak-badge b{color:var(--clay)!important}
+.top-ask{background:linear-gradient(145deg,var(--clay-2),var(--clay))!important;color:#fff!important;box-shadow:0 4px 12px rgba(192,132,104,.24)!important}
+/* 横幅：改浅色 + 右侧人物插画 */
+.hero{background:var(--card)!important;border:1px solid var(--line)!important;color:var(--ink)!important;
+  padding:26px 240px 26px 24px!important;min-height:150px;position:relative;overflow:hidden;box-shadow:0 8px 26px rgba(147,107,86,.09)!important}
+.hero::before{content:"";position:absolute;right:-40px;top:-50px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(243,199,174,.55),transparent 68%);pointer-events:none}
+.hero::after{content:""!important;position:absolute;right:-6px;bottom:-10px;width:236px;height:236px;background:url('../assets/illus/watercolor.png') center/contain no-repeat;opacity:1!important;font-size:0!important;pointer-events:none}
+.hero h1{color:#3F3025!important;text-shadow:none!important;font-size:25px!important}
+.hero .sub{color:var(--ink-2)!important;opacity:1!important}
+.hero .hs b{color:var(--clay)!important;text-shadow:none!important}
+.hero .hs span{color:var(--ink-2)!important;opacity:1!important}
+/* 卡片 */
+.card{background:var(--card)!important;border-color:var(--line)!important;box-shadow:0 4px 18px rgba(147,107,86,.07)!important}
+/* 方块：粉彩底 + 深色描边图标（图里的做法） */
+.grid-btns .gb{background:var(--t1)!important;border:none!important;box-shadow:0 2px 8px rgba(147,107,86,.08)!important}
+.grid-btns .gb:nth-child(4n+1){background:var(--t1)!important}
+.grid-btns .gb:nth-child(4n+2){background:var(--t2)!important}
+.grid-btns .gb:nth-child(4n+3){background:var(--t3)!important}
+.grid-btns .gb:nth-child(4n){background:var(--t4)!important}
+.grid-btns .gb .gt{color:#5C4A3C!important}
+.grid-btns .gb .gi img{width:34px;height:34px;object-fit:contain;display:block}
+/* 麦克风按钮 */
+.ask-mic-img{width:22px;height:22px;object-fit:contain;display:block;margin:auto}
+.ask-mic{display:grid!important;place-items:center;border-color:var(--line)!important}
+/* 行测研习三张卡：居中 */
+.practice-tools .tool-card,.academy-grid .feature-card{align-items:center!important;text-align:center!important}
+.practice-tools .tool-card p,.academy-grid .feature-card p{text-align:center}
+.practice-tools .tool-card .btn,.academy-grid .feature-card .btn{margin-inline:auto}
+/* 按钮 */
+.btn.primary{background:linear-gradient(145deg,var(--clay-2),var(--clay))!important;box-shadow:0 4px 14px rgba(192,132,104,.24)!important}
+.btn.gold{background:linear-gradient(145deg,var(--honey-soft),var(--honey))!important;color:#5C4326!important}
+.ask-send{background:linear-gradient(145deg,var(--clay-2),var(--clay))!important}
+.ask-chip{border-color:var(--line)!important;color:var(--ink-2)!important}
+.ask-composer{border-color:var(--line)!important;background:var(--card)!important}
+/* 移动端：横幅不压字 */
+@media(max-width:767px){
+  .hero{padding:20px 130px 20px 16px!important;min-height:118px}
+  .hero::after{width:150px;height:150px;right:-14px;bottom:-14px}
+  .hero h1{font-size:21px!important}
+}
+/* 图标放大：生成的插画在 24px 看不清 */
+.grid-btns .gb .gi{width:40px;height:40px!important}
+.grid-btns .gb .gi img{width:40px;height:40px!important}
+.mod-ico{width:36px!important;height:36px!important}
+.mi .mod-ico,.mod-val .mod-ico{width:30px!important;height:30px!important}
+.q-tag .mod-ico{width:20px!important;height:20px!important}
+/* 方块留白与文字 */
+.grid-btns .gb{padding:18px 6px 16px!important;gap:11px!important}
+.grid-btns .gb .gt{font-size:13px!important}
+/* 模块行高度 */
+.mod-card,.mod-list button{min-height:58px}
+/* 移动端 */
+@media(max-width:767px){
+  .grid-btns .gb .gi,.grid-btns .gb .gi img{width:34px!important;height:34px!important}
+  .mod-ico{width:30px!important;height:30px!important}
+  .grid-btns .gb{padding:14px 4px 12px!important}
+}
