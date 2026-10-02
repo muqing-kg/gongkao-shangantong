@@ -16,3 +16,7 @@ __pycache__/
 # 本地备份
 .backup/
 
+
+# 服务端数据（含密码哈希与学情，不入库）
+server/data/
+
