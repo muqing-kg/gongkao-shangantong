@@ -80,7 +80,7 @@ with sync_playwright() as p:
 
     check('首页-hero', page.locator('.hero').count()==1)
     check('首页-模块掌握度6项', page.locator('.r-mod').count()==6)
-    check('首页-快捷按钮7个', page.locator('.grid-btns .gb').count()==7)
+    check('首页-快捷按钮8个', page.locator('.grid-btns .gb').count()==8)
 
     # 能力分析（attempts 日志 + 多维画像）
     ana_ok = page.evaluate("""() => {

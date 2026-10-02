@@ -1108,9 +1108,10 @@ function renderDash(){
     <button class="gb" onclick="quickStart('随机刷题')"><span class="gi"><img src="assets/illus/tile/random.png" alt=""></span><span class="gt">随机刷题</span></button>
     <button class="gb" onclick="quickStart('错题重练')"><span class="gi"><img src="assets/illus/tile/wrong.png" alt=""></span><span class="gt">错题重练</span></button>
     <button class="gb" onclick="quickStart('模拟考试')"><span class="gi"><img src="assets/illus/tile/clock.png" alt=""></span><span class="gt">模拟考试</span></button>
-    <button class="gb" onclick="switchTab('exam')"><span class="gi"><img src="assets/illus/tile/paper.png" alt=""></span><span class="gt">智能组卷</span></button>
-    <button class="gb" onclick="renderFillback()"><span class="gi"><img src="assets/illus/tile/inbox.png" alt=""></span><span class="gt">答案回填</span></button>
+        <button class="gb" onclick="renderFillback()"><span class="gi"><img src="assets/illus/tile/inbox.png" alt=""></span><span class="gt">答案回填</span></button>
     <button class="gb" onclick="renderAnalysis()"><span class="gi"><img src="assets/illus/tile/chart.png" alt=""></span><span class="gt">能力分析</span></button>
+    <button class="gb" onclick="renderEssay()"><span class="gi"><img src="assets/illus/tile/essay.png" alt=""></span><span class="gt">申论练笔</span></button>
+    <button class="gb" onclick="renderPlan()"><span class="gi"><img src="assets/illus/tile/plan.png" alt=""></span><span class="gt">学习计划</span></button>
   </div>
   <div class="card">
     <h3><span class="dot"></span>模块掌握度</h3>
