@@ -1,0 +1,16 @@
+# 构建镜像时不要把仓库里的杂物塞进去
+.git
+.github
+.backup
+sketches
+screenshots
+test_shots
+__pycache__
+*.pyc
+docs
+scripts
+server/data
+*.md
+.gitignore
+Dockerfile
+.dockerignore

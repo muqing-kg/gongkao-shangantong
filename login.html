@@ -53,8 +53,6 @@ button:active{transform:translateY(1px)}
 button:disabled{opacity:.6;cursor:default}
 .msg{min-height:20px;margin-top:14px;font-size:13px;color:#C9553F}
 .msg.ok{color:#6E7F52}
-.hint{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2);line-height:1.75;text-align:left}
-.hint b{color:var(--clay)}
 @media(max-width:400px){.card{padding:30px 22px 24px;border-radius:22px}.logo{width:80px;height:80px}}
 </style>
 </head>
@@ -71,11 +69,6 @@ button:disabled{opacity:.6;cursor:default}
     <button id="go" type="submit">进入</button>
   </form>
   <div class="msg" id="msg" role="status" aria-live="polite"></div>
-
-  <div class="hint">
-    <b>学习端</b>：输入学习密码，进入题库与学习记录。<br>
-    <b>管理端</b>：输入管理密码，进入后台查看学习情况与系统配置。
-  </div>
 </main>
 
 <script>

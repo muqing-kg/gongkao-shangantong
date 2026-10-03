@@ -49,6 +49,18 @@ function hashPassword(pw, salt) {
   const hash = crypto.scryptSync(pw, salt, 32).toString('hex');
   return { salt, hash };
 }
+/* 环境变量优先：USER_PASSWORD / ADMIN_PASSWORD。
+   在编排（docker-compose）里写一次就行，不用再跑脚本改 db.json。
+   值在启动时哈希进内存，验证路径与数据库模式完全一致。 */
+const ENV_PW = {};
+for (const [role, key] of [['user', 'USER_PASSWORD'], ['admin', 'ADMIN_PASSWORD']]) {
+  const v = process.env[key];
+  if (v) ENV_PW[role] = hashPassword(v);
+}
+function userRecord(role) {
+  return ENV_PW[role] || db.users[role];
+}
+
 function verifyPassword(pw, rec) {
   if (!rec || !rec.salt || !rec.hash) return false;
   const { hash } = hashPassword(pw, rec.salt);
@@ -147,17 +159,17 @@ const server = http.createServer(async (req, res) => {
                   : body.role === 'user' ? ['user', 'admin']
                   : ['admin', 'user'];
       for (const r of order) {
-        if (db.users[r] && verifyPassword(password, db.users[r])) { role = r; break; }
+        const rec = userRecord(r);
+        if (rec && verifyPassword(password, rec)) { role = r; break; }
       }
       if (!role) {
-        if (!db.users.user && !db.users.admin) {
+        if (!userRecord('user') && !userRecord('admin')) {
           return sendJson(res, 400, { error: '还没设置密码，请在服务器上执行 node server/set-password.js' });
         }
         return sendJson(res, 401, { error: '密码不对' });
       }
       const s = newSession(role);
-      db.users[role].lastLoginAt = Date.now();
-      saveDb(db);
+      if (db.users[role]) { db.users[role].lastLoginAt = Date.now(); saveDb(db); }
       return sendJson(res, 200, { ok: true, role, expires: s.expires },
         { 'Set-Cookie': sessionCookie(s.token, s.expires) });
     }
@@ -339,7 +351,10 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`同舟共济服务端已启动: http://127.0.0.1:${PORT}`);
   console.log(`数据目录: ${DATA_DIR}`);
-  const hasUser = !!db.users.user, hasAdmin = !!db.users.admin;
+  if (Object.keys(ENV_PW).length) {
+    console.log(`密码来源: 环境变量（${Object.keys(ENV_PW).join(', ')}）`);
+  }
+  const hasUser = !!userRecord('user'), hasAdmin = !!userRecord('admin');
   if (!hasUser || !hasAdmin) {
     console.log('提示：还没设密码，执行');
     if (!hasUser) console.log('  node server/set-password.js user  <她的密码>');
