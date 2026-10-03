@@ -105,7 +105,13 @@ button:disabled{opacity:.6;cursor:default}
       Key 只存在服务器上，学习端拿不到。
     </p>
     <div class="field"><label for="aiUrl">接口地址</label><input id="aiUrl" type="text" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
-    <div class="field"><label for="aiModel">模型名</label><input id="aiModel" type="text" placeholder="deepseek-chat"></div>
+    <div class="field"><label for="aiModel">模型名</label>
+      <div class="row" style="gap:8px">
+        <input id="aiModel" type="text" placeholder="deepseek-chat" style="flex:1;min-width:0">
+        <button class="ghost" id="aiModelsBtn" type="button" style="height:44px;white-space:nowrap">获取模型列表</button>
+      </div>
+      <select id="aiModelPick" class="hidden" style="margin-top:8px;width:100%;height:44px;padding:0 13px;font-size:14.5px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:11px"></select>
+    </div>
     <div class="field"><label for="aiKey">API Key<span id="keyHint" style="color:var(--ink-2);font-weight:400"></span></label><input id="aiKey" type="password" placeholder="留空表示不修改"></div>
     <div class="row">
       <button id="saveAi">保存配置</button>
@@ -115,10 +121,14 @@ button:disabled{opacity:.6;cursor:default}
   </div>
 
   <div class="card">
-    <h2>给她的一句话</h2>
-    <div class="field"><label for="msgText">显示在她的首页</label><input id="msgText" type="text" maxlength="120" placeholder="例如：今天也一起"></div>
-    <button id="saveMsg">保存</button>
+    <h2>给她的话</h2>
+    <p style="margin:0 0 14px;font-size:13px;color:var(--ink-2)">可以写多条，都会显示在她的首页。</p>
+    <div class="row" style="gap:8px">
+      <input id="msgText" type="text" maxlength="120" placeholder="例如：今天也一起" style="flex:1;min-width:0">
+      <button id="saveMsg" type="button" style="white-space:nowrap">添加</button>
+    </div>
     <div class="msg" id="msgOut"></div>
+    <div id="msgList" style="margin-top:14px"></div>
   </div>
 </div>
 
@@ -216,15 +226,72 @@ $('#testAi').onclick = async () => {
   } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
 };
 
+/* ---------- 给她的话：多条，可删 ---------- */
+const esc2 = s => esc(s);
+
+async function loadMsgs() {
+  try {
+    const d = await api('api/message');
+    const list = d.messages || [];
+    const host = $('#msgList');
+    if (!list.length) { host.innerHTML = '<div class="empty">还没有留言</div>'; return; }
+    host.innerHTML = '<table><thead><tr><th>内容</th><th style="width:70px">时间</th><th style="width:60px"></th></tr></thead><tbody>'
+      + list.map(m => `<tr>
+          <td>${esc2(m.text)}</td>
+          <td style="color:var(--ink-2);font-size:12px">${new Date(m.at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</td>
+          <td><button class="ghost" data-del="${esc2(m.id)}" style="height:30px;padding:0 10px;font-size:12px">删除</button></td>
+        </tr>`).join('')
+      + '</tbody></table>';
+  } catch (e) { $('#msgList').innerHTML = `<div class="empty">${esc2(e.message)}</div>`; }
+}
+
+$('#msgList').addEventListener('click', async e => {
+  const id = e.target.closest('[data-del]')?.dataset.del;
+  if (!id) return;
+  const m = $('#msgOut'); m.className = 'msg'; m.textContent = '删除中…';
+  try {
+    await api('api/message?id=' + encodeURIComponent(id), { method: 'DELETE' });
+    m.textContent = '已删除';
+    loadMsgs();
+  } catch (err) { m.className = 'msg err'; m.textContent = err.message; }
+});
+
 $('#saveMsg').onclick = async () => {
-  const m = $('#msgOut'); m.className = 'msg'; m.textContent = '保存中…';
+  const m = $('#msgOut'); m.className = 'msg'; m.textContent = '添加中…';
+  const text = $('#msgText').value.trim();
+  if (!text) { m.className = 'msg err'; m.textContent = '先写点什么'; return; }
   try {
     await api('api/message', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: $('#msgText').value }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
     });
-    m.textContent = '已保存，她会看到';
+    $('#msgText').value = '';
+    m.textContent = '已添加，她会看到';
+    loadMsgs();
   } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
+};
+
+/* ---------- 获取模型列表 ---------- */
+$('#aiModelsBtn').onclick = async () => {
+  const m = $('#aiMsg'); m.className = 'msg'; m.textContent = '正在拉取…';
+  const btn = $('#aiModelsBtn'); btn.disabled = true;
+  try {
+    // 先把当前填的地址与 Key 存下来，服务端才知道去哪拉
+    await api('api/admin/ai', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: $('#aiUrl').value, model: $('#aiModel').value, key: $('#aiKey').value }),
+    });
+    $('#aiKey').value = '';
+    const d = await api('api/admin/models');
+    const sel = $('#aiModelPick');
+    if (!d.models || !d.models.length) { m.className = 'msg err'; m.textContent = '上游没返回模型'; return; }
+    sel.innerHTML = '<option value="">— 选一个填入 —</option>'
+      + d.models.map(x => `<option value="${esc2(x)}">${esc2(x)}</option>`).join('');
+    sel.classList.remove('hidden');
+    sel.onchange = () => { if (sel.value) { $('#aiModel').value = sel.value; m.textContent = '已选：' + sel.value; } };
+    m.textContent = `拉到 ${d.models.length} 个模型，选一个即可`;
+  } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
+  finally { btn.disabled = false; }
 };
 
 $('#logout').onclick = async () => {
@@ -237,8 +304,7 @@ $('#logout').onclick = async () => {
     const me = await api('api/me');
     if (me.role !== 'admin') { location.replace('index.html'); return; }
     await Promise.all([loadOverview(), loadActivity(), loadAi()]);
-    const msg = await api('api/message').catch(() => ({ text: '' }));
-    $('#msgText').value = msg.text || '';
+    await loadMsgs();
     setInterval(() => { loadOverview().catch(() => {}); loadActivity().catch(() => {}); }, 60000);
   } catch (e) {
     if (e.message !== '未登录') $('#activity').innerHTML = `<div class="empty">${esc(e.message)}</div>`;

@@ -207,15 +207,42 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/message') {
       if (req.method === 'GET') {
         if (!sess) return sendJson(res, 401, { error: '未登录' });
-        return sendJson(res, 200, { text: (db.messages[db.messages.length - 1] || {}).text || '' });
+        const list = db.messages || [];
+        // 兼容旧字段：text 仍返回最后一条
+        return sendJson(res, 200, {
+          messages: list,
+          text: (list[list.length - 1] || {}).text || '',
+        });
       }
-      if (req.method === 'PUT') {
+      if (req.method === 'POST' || req.method === 'PUT') {
         if (!sess || sess.role !== 'admin') return sendJson(res, 403, { error: '仅管理员' });
         const { text } = JSON.parse(await readBody(req) || '{}');
-        db.messages.push({ text: String(text || '').slice(0, 500), at: Date.now() });
+        const t = String(text || '').trim().slice(0, 200);
+        if (!t) return sendJson(res, 400, { error: '内容不能为空' });
+        const item = { id: crypto.randomBytes(6).toString('hex'), text: t, at: Date.now() };
+        db.messages = db.messages || [];
+        db.messages.push(item);
         saveDb(db);
-        return sendJson(res, 200, { ok: true });
+        return sendJson(res, 200, { ok: true, item });
       }
+      if (req.method === 'DELETE') {
+        if (!sess || sess.role !== 'admin') return sendJson(res, 403, { error: '仅管理员' });
+        const id = parsed.query.id || '';
+        const before = (db.messages || []).length;
+        db.messages = (db.messages || []).filter(m => m.id !== id);
+        saveDb(db);
+        return sendJson(res, 200, { ok: true, removed: before - db.messages.length });
+      }
+    }
+
+    /* ===== AI 状态：学习端靠这个判断「能不能用」 ===== */
+    if (p === '/api/ai/status') {
+      if (!sess) return sendJson(res, 401, { error: '未登录' });
+      const c = db.config.ai || {};
+      return sendJson(res, 200, {
+        configured: !!(c.url && c.key),
+        model: c.model || '',
+      });
     }
 
     /* ===== AI 代理：Key 只在服务端 ===== */
@@ -223,11 +250,14 @@ const server = http.createServer(async (req, res) => {
       if (!sess) return sendJson(res, 401, { error: '未登录' });
       const cfg = db.config.ai || {};
       if (!cfg.url || !cfg.key) return sendJson(res, 503, { error: 'AI 还没配置，请让管理员在后台填一下' });
-      const body = await readBody(req);
+      let payload = {};
+      try { payload = JSON.parse(await readBody(req) || '{}'); } catch (_) {}
+      // 模型名以服务端配置为准：学习端不知道管理员填的是哪个
+      if (cfg.model) payload.model = cfg.model;
       const upstream = await fetch(cfg.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.key}` },
-        body,
+        body: JSON.stringify(payload),
       });
       const text = await upstream.text();
       return send(res, upstream.status, text, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -309,6 +339,26 @@ const server = http.createServer(async (req, res) => {
         };
         saveDb(db);
         return sendJson(res, 200, { ok: true });
+      }
+    }
+
+    if (p === '/api/admin/models') {
+      if (!sess || sess.role !== 'admin') return sendJson(res, 403, { error: '仅管理员' });
+      const c = db.config.ai || {};
+      if (!c.url || !c.key) return sendJson(res, 400, { error: '先填接口地址和 Key' });
+      // 由 chat/completions 推出 /models
+      const base = c.url.replace(/\/chat\/completions\/?$/, '');
+      const mUrl = /\/chat\/completions\/?$/.test(c.url) ? base + '/models' : c.url.replace(/\/?$/, '') + '/models';
+      try {
+        const r = await fetch(mUrl, { headers: { Authorization: `Bearer ${c.key}` } });
+        const txt = await r.text();
+        if (!r.ok) return sendJson(res, 502, { error: `上游返回 ${r.status}`, detail: txt.slice(0, 200) });
+        let data = {};
+        try { data = JSON.parse(txt); } catch (_) { return sendJson(res, 502, { error: '上游返回的不是 JSON' }); }
+        const list = (data.data || data.models || []).map(x => x.id || x.name || x).filter(Boolean);
+        return sendJson(res, 200, { models: list });
+      } catch (e) {
+        return sendJson(res, 502, { error: '拉取失败：' + (e?.message || e) });
       }
     }
 

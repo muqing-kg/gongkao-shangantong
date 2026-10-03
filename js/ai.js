@@ -31,7 +31,57 @@
   }
   /* 「已配置」必须含 Key：默认值已预填地址与模型，只看这两项会误判成已就绪。
      （若目标是不需要 Key 的本地代理，填任意占位串即可。） */
-  function ready(){ const c = loadCfg(); return !!(c.url && c.model && c.key); }
+  /* 服务端配置（管理员在后台填的）。学习端拿不到 Key，只拿到「能不能用」与模型名。 */
+  let serverCfg = null;
+  let serverCfgLoaded = false;
+  async function loadServerCfg(){
+    if (serverCfgLoaded) return serverCfg;
+    try {
+      const r = await fetch('api/ai/status', { credentials: 'same-origin' });
+      if (r.ok) {
+        const d = await r.json();
+        serverCfg = d.configured ? d : null;
+      }
+    } catch (_) { serverCfg = null; }
+    serverCfgLoaded = true;
+    return serverCfg;
+  }
+  function hasLocal(){ const c = loadCfg(); return !!(c.url && c.model && c.key); }
+
+  /* 本地配了算就绪；否则看服务端配没配（异步探一次，之后同步返回） */
+  function ready(){ return hasLocal() || !!serverCfg; }
+  async function readyAsync(){ if (hasLocal()) return true; await loadServerCfg(); return !!serverCfg; }
+
+  /* 走服务端代理：模型名由服务端注入，这里不用管 */
+  async function chatViaServer(messages, opts = {}){
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs || 90000);
+    try{
+      const res = await fetch('api/ai', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages,
+          temperature: opts.temperature ?? 0.3,
+          max_tokens: opts.maxTokens ?? 1200,
+          stream: false,
+        }),
+        signal: ctrl.signal,
+      });
+      const text = await res.text();
+      if(!res.ok){
+        let msg = text;
+        try { msg = JSON.parse(text).error || text; } catch(_) {}
+        throw new Error(res.status === 503 ? 'AI 还没配好，请联系管理员在后台配置' : describeHttpError(res.status, msg));
+      }
+      let data = {};
+      try { data = JSON.parse(text); } catch(_) { throw new Error('AI 返回的不是 JSON'); }
+      const out = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      if(!out) throw new Error('AI 没有返回内容');
+      return out;
+    } finally { clearTimeout(timer); }
+  }
 
   /* 把 HTTP 状态翻译成用户能照做的动作，而不是甩一个 401 出去 */
   function describeHttpError(status, body){
@@ -45,7 +95,12 @@
 
   async function chat(messages, opts = {}){
     const c = loadCfg();
-    if(!c.url || !c.model) throw new Error('尚未配置 AI 接口，请到「我的书斋 → AI 接入」填写');
+    // 本地没配就走服务端代理：Key 留在服务器，浏览器只发消息体
+    if(!(c.url && c.model && c.key)){
+      await loadServerCfg();
+      if(!serverCfg) throw new Error('AI 还没配好，请联系管理员在后台配置');
+      return chatViaServer(messages, opts);
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs || 90000);
     try{
@@ -148,6 +203,7 @@
     return saveCfg(obj);
   }
 
-  window.AI = { loadCfg, saveCfg, ready, chat, listModels, modelsUrl, describeHttpError,
+  window.AI = {
+    readyAsync, loadServerCfg, loadCfg, saveCfg, ready, chat, listModels, modelsUrl, describeHttpError,
                 exportCfg, importCfg, CFG_KEY, DEF, CFG_PREFIX };
 })();

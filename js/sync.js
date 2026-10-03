@@ -77,20 +77,30 @@
     pushing = false;
   }
 
-  /* ---------- 3. 她读得到留言 ---------- */
+  /* ---------- 3. 她读得到留言（可以有多条） ---------- */
   async function showMessage() {
     if (!authed) return;
     try {
       const r = await fetch(API.message, { credentials: 'same-origin' });
       if (!r.ok) return;
       const d = await r.json();
-      if (!d.text) return;
+      const list = (d.messages || []).filter(m => m && m.text);
+      if (!list.length) return;
       const host = document.querySelector('#view');
-      if (!host || host.querySelector('.love-note')) return;
+      if (!host) return;
+      const old = host.querySelector('.love-note');
+      if (old) old.remove();
       const el = document.createElement('div');
       el.className = 'card love-note';
-      el.innerHTML = '<h3><span class="dot"></span>他留给你的话</h3><p class="muted" style="font-size:15px;line-height:1.8"></p>';
-      el.querySelector('p').textContent = d.text;
+      el.innerHTML = '<h3><span class="dot"></span>他留给你的话</h3>';
+      // 每条一行；纯文本插入，不用 innerHTML
+      list.forEach(m => {
+        const p = document.createElement('p');
+        p.className = 'muted';
+        p.style.cssText = 'font-size:15px;line-height:1.8;margin:0 0 6px';
+        p.textContent = m.text;
+        el.appendChild(p);
+      });
       host.appendChild(el);
     } catch (_) {}
   }
@@ -109,6 +119,13 @@
     // 答完题、交卷后立刻同步（不用等心跳）
     document.addEventListener('sat:answered', () => push(true));
     document.addEventListener('sat:bank-loaded', () => { push(true); setTimeout(showMessage, 400); });
+
+    // 启动时探一次服务端 AI 配置：管理员在后台配好后，她的端就能直接用
+    if (window.AI && window.AI.readyAsync) {
+      window.AI.readyAsync().then(() => {
+        document.dispatchEvent(new CustomEvent('sat:ai-ready'));
+      }).catch(() => {});
+    }
 
     // 心跳：每 2 分钟检查一次，服务端按 1 分钟去重
     setInterval(() => push(false), 120000);
