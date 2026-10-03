@@ -42,6 +42,19 @@ function saveDb(db) {
 }
 let db = loadDb();
 
+/* 早期版本的留言只有 {text, at}，没有 id，后台就删不掉。
+   启动时统一补上，一次性迁移。 */
+(function backfillMessageIds() {
+  if (!Array.isArray(db.messages)) { db.messages = []; return; }
+  let changed = false;
+  db.messages = db.messages.map(m => {
+    if (!m || typeof m !== 'object') return m;
+    if (!m.id) { changed = true; return { ...m, id: crypto.randomBytes(6).toString('hex') }; }
+    return m;
+  });
+  if (changed) { saveDb(db); console.log('已为历史留言补上 id'); }
+})();
+
 /* ---------------- 密码哈希 ----------------
    scrypt + 随机盐；明文永不落盘。 */
 function hashPassword(pw, salt) {

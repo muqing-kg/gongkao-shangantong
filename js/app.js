@@ -2417,6 +2417,19 @@ window.exportData=exportData; window.importData=importData; window.confirmReset=
 window.toggleReview=toggleReview;
 /* 给同步脚本读取当前状态（只读，不修改） */
 window.getStore=()=>store; window.getStreak=()=>streakDays();
+
+/* AI 状态是异步探到的（服务端配置），探完把界面上的「尚未接入」提示刷新掉 */
+document.addEventListener('sat:ai-ready', () => {
+  if (!window.AI || !window.AI.ready()) return;
+  $$('.ask-status').forEach(el => {
+    if (el.textContent.indexOf('尚未接入') >= 0) {
+      el.textContent = '已接入 AI。问题会连同你的学情统计一起发出去，不含题目与答案。';
+    }
+  });
+  $$('.ask-composer .tag').forEach(el => {
+    if (el.textContent.indexOf('尚未接入') >= 0) el.textContent = '已接入 AI';
+  });
+});
 window.reviewQuiz=reviewQuiz; window.reviewNav=reviewNav; window.closeResult=closeResult;
 window.fillAskPrompt=fillAskPrompt; window.sendAsk=sendAsk; window.askMic=askMic;
 window.openGrowthTool=openGrowthTool;
