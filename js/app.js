@@ -2175,7 +2175,23 @@ function modalBackground(open, restore=true){
   ['.topbar','#view','.sidebar'].forEach(sel=>{ const el=$(sel); if(el) open?el.setAttribute('inert',''):el.removeAttribute('inert'); });
   if(!open&&restore) restoreModalFocus();
 }
+/* 内容去重：多省联考会共用同一道题（题干+选项完全一致，id 不同），
+   同一次练习里出现两遍很突兀。按「题干+选项」归一化后去重，保留第一个。
+   放在 startQuiz 这个总入口，所有出题口（每日一练/随机/错题/模考/智能组卷）一次覆盖。 */
+function uniqByContent(list){
+  const seen=new Set(); const out=[];
+  for(const q of (list||[])){
+    if(!q) continue;
+    const norm=v=>String(v==null?'':v).replace(/<[^>]+>/g,'').replace(/\[图\d+\]/g,'')
+      .replace(/[\s\u3000　，。；：、！？（）()"“”《》·—-]+/g,'');
+    const key=norm(q.stem).slice(0,80)+'|'+(q.options||[]).map(norm).join(',')+'|'+norm(q.analysis).slice(0,60);
+    if(seen.has(key)) continue;
+    seen.add(key); out.push(q);
+  }
+  return out;
+}
 function startQuiz(list,title,seconds){
+  list=uniqByContent(list);
   if(!Array.isArray(list)||!list.length){ toast('当前没有可练习的题目，请先选择或搜索题目'); return false; }
   clearInterval(Q.timer);
   const origin=document.activeElement;
@@ -2189,18 +2205,26 @@ function startQuiz(list,title,seconds){
   modalBackground(true);
   $('#quizLayer').focus();
   document.body.style.overflow='hidden';
-  if(limit){ updateQuizTimer(); Q.timer=setInterval(updateQuizTimer,1000); }
+  // 不管限不限时都计时：限时倒计时，不限时正计时
+  updateQuizTimer(); Q.timer=setInterval(updateQuizTimer,1000);
   renderQ();
   return true;
 }
 function fmtClock(sec){ return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`; }
 function updateQuizTimer(){
-  if(!Q.limit||!Q.deadline) return;
   const now=Date.now();
-  Q.elapsed=Math.min(Q.limit,Math.max(0,Math.floor((now-Q.start)/1000)));
-  const left=Math.max(0,Math.ceil((Q.deadline-now)/1000));
-  $('#quizTimer').textContent=' '+fmtClock(left);
-  if(now>=Q.deadline){ clearInterval(Q.timer); Q.timer=null; finishQuiz(true); }
+  const el=$('#quizTimer');
+  if(Q.deadline){
+    // 限时模式（模拟考试）：倒计时
+    Q.elapsed=Math.min(Q.limit,Math.max(0,Math.floor((now-Q.start)/1000)));
+    const left=Math.max(0,Math.ceil((Q.deadline-now)/1000));
+    if(el) el.textContent=' '+fmtClock(left);
+    if(now>=Q.deadline){ clearInterval(Q.timer); Q.timer=null; finishQuiz(true); }
+    return;
+  }
+  // 不限时（每日一练 / 随机刷题 / 错题重练…）：正计时
+  Q.elapsed=Math.max(0,Math.floor((now-Q.start)/1000));
+  if(el) el.textContent=' '+fmtClock(Q.elapsed);
 }
 function renderQ(){
   stopAskRecognizers();

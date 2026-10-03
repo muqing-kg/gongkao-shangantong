@@ -53,7 +53,7 @@ with sync_playwright() as p:
     check('模考时间跳过deadline立即交卷', exam_timer.get('supported') and exam_timer['expired']['hidden'] and '时间到' in exam_timer['expired']['result'], str(exam_timer))
 
     score = page.evaluate("""() => {
-      const q=i=>({id:'score-'+i,mod:'常识判断',type:'单选',stem:'测试',options:['A','B','C','D'],answer:0,analysis:'解析'});
+      const q=i=>({id:'score-'+i,mod:'常识判断',type:'单选',stem:'测试题'+i,options:['A'+i,'B','C','D'],answer:0,analysis:'解析'+i});
       startQuiz([q(1),q(2)], '计分回归'); Q.answers['score-1']=0; finishQuiz();
       return document.querySelector('.r-score').innerText;
     }""")
