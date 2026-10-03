@@ -56,3 +56,13 @@
   .why-chip{padding:6px 13px;font-size:13px}
   .why-box{padding:12px 13px}
 }
+
+
+/* ---------- 8. 三步开始（原用 emoji 键帽 1️⃣2️⃣3️⃣，部分安卓渲染成空白） ---------- */
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.75;color:var(--ink-2)}
+.step>i{flex:none;width:22px;height:22px;border-radius:50%;margin-top:2px;
+  display:grid;place-items:center;font-style:normal;font-size:12.5px;font-weight:700;
+  background:linear-gradient(145deg,var(--clay-2),var(--clay));color:#fff;
+  box-shadow:0 2px 6px rgba(192,132,104,.28)}
+.step>span{flex:1;min-width:0}

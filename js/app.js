@@ -1068,9 +1068,11 @@ function renderDash(){
     <button class="btn primary" onclick="quickStart('错题重练')">开始复习 →</button>
   </div>`:''}
   ${store.stats.answered===0? `<div class="card"><h3><span class="dot"></span>第一次来？三步开始</h3>
-    <div class="muted mb10">1⃣ 到「修业成长 → 学习计划」填上考试日期和每天想练多少题<br>
-    2⃣ 点上面的「每日一练」，先把今天的量做掉<br>
-    3⃣ 做错的题会自动进错题本；在逐题回顾里标一下错因，App 才看得出你失分在哪</div>
+    <div class="steps">
+      <div class="step"><i>1</i><span>到「修业成长 → 学习计划」填上考试日期和每天想练多少题</span></div>
+      <div class="step"><i>2</i><span>点上面的「每日一练」，先把今天的量做掉</span></div>
+      <div class="step"><i>3</i><span>做错的题会自动进错题本；在逐题回顾里标一下错因，App 才看得出你失分在哪</span></div>
+    </div>
     <div class="btn-row">
       <button class="btn primary" onclick="openGrowthTool('plan')">去设学习计划</button>
       <button class="btn" onclick="switchTab('shenlun')">看看申论</button>
@@ -2101,7 +2103,7 @@ function renderShenlunSearch(){
 function toggleFav(title){
   const i=store.favs.indexOf(title);
   i>=0?store.favs.splice(i,1):store.favs.push(title);
-  save(); renderShenlun(); toast(i>=0?'已取消收藏':'已收藏 ❤', i>=0?'':'ok');
+  save(); renderShenlun(); toast(i>=0?'已取消收藏':'已收藏', i>=0?'':'ok');
 }
 function addCustomSl(){
   const title=$('#slTitle').value.trim(), body=$('#slBody').value.trim(), cat=$('#slCat').value;

@@ -27,7 +27,7 @@ with sync_playwright() as p:
         page.locator(".brand-name").inner_text().splitlines() == ["同舟共济", "一起渡过这段路"],
         page.locator(".brand-name").inner_text(),
     )
-    check("品牌图标使用生成的小舟插画", page.locator('.brand-logo img[src*="logo-boat"]').count() == 1)
+    check("品牌图标使用生成的小舟插画", page.locator('.brand-logo img[src*="logo-mark"]').count() == 1)
 
     expected = ["首页", "行测", "申论", "成长", "上岸小助手"]
     labels = page.locator(".tabbar .tab").all_inner_texts()
